@@ -1,191 +1,123 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Quotes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <title>Quotes</title>
 </head>
-<body class="bg-zinc-950 text-zinc-100">
-  <div class="max-w-5xl mx-auto p-4 sm:p-6">
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <div class="max-w-6xl mx-auto p-4 md:p-6 space-y-4">
     <div class="flex items-end justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold">Quotes</h1>
-        <p class="text-zinc-400 text-sm">Add price too.</p>
+        <h1 class="text-2xl font-bold">Quotes</h1>
+        <p class="text-zinc-400 text-sm">Add, edit, and delete quotes linked to customers.</p>
+      </div>
+      <button id="refresh" class="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700">Refresh</button>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4">
+      <form id="quoteForm" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+        <input type="hidden" name="id" />
+        <div class="grid gap-3">
+          <input name="quote" required placeholder="Quote" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
+          <div class="grid grid-cols-2 gap-3">
+            <input name="author" placeholder="Author" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
+            <input name="price" type="number" step="0.01" placeholder="Price" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
+          </div>
+          <input name="source" placeholder="Source" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
+          <input name="tags" placeholder="Tags comma-separated" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
+          <select name="customer_id" id="customerSelect" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none"></select>
+        </div>
+        <div class="flex gap-2">
+          <button id="saveBtn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500">Add Quote</button>
+          <button id="cancelEdit" type="button" class="hidden px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700">Cancel</button>
+        </div>
+        <div id="msg" class="text-sm text-zinc-400"></div>
+      </form>
+
+      <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold">Customers</h2>
+        </div>
+        <div id="customers" class="space-y-2 text-sm"></div>
       </div>
     </div>
 
-    <div class="mt-5 grid md:grid-cols-2 gap-4">
-      <form id="addForm" class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-        <div class="space-y-3">
-          <div>
-            <label class="block text-sm text-zinc-300 mb-1">Quote</label>
-            <textarea name="quote" required rows="3" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Type a quote..."></textarea>
-          </div>
-          <div class="grid sm:grid-cols-3 gap-3">
-            <div>
-              <label class="block text-sm text-zinc-300 mb-1">Author</label>
-              <input name="author" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Optional">
-            </div>
-            <div class="sm:col-span-2">
-              <label class="block text-sm text-zinc-300 mb-1">Source</label>
-              <input name="source" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Optional">
-            </div>
-          </div>
-          <div class="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-sm text-zinc-300 mb-1">Tags</label>
-              <input name="tags" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Comma separated">
-            </div>
-            <div>
-              <label class="block text-sm text-zinc-300 mb-1">Price</label>
-              <input name="price" type="number" step="0.01" min="0" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Optional">
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm text-zinc-300 mb-1">Due date</label>
-            <input name="due_date" type="date" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500">
-          </div>
-          <button class="w-full mt-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg py-2.5 font-medium">Add</button>
-        </div>
-      </form>
-
-      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-        <div class="flex items-center justify-between gap-3 mb-3">
-          <h2 class="font-semibold">List</h2>
-          <div class="flex items-center gap-2">
-            <input id="q" class="bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Search" />
-            <button id="refresh" class="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700">↻</button>
-          </div>
-        </div>
-        <div id="list" class="space-y-3"></div>
+    <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">Quote list</h2>
+        <div id="count" class="text-sm text-zinc-400"></div>
       </div>
+      <div id="quotes" class="grid gap-3"></div>
     </div>
   </div>
 
-  <template id="rowTpl">
-    <div class="group bg-zinc-950 border border-zinc-800 rounded-xl p-3">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="text-sm text-zinc-400 flex items-center gap-2">
-            <span class="badge bg-zinc-800 text-zinc-200 px-2 py-0.5 rounded-full" data-role="id"></span>
-            <span class="text-zinc-500" data-role="meta"></span>
-          </div>
-          <div class="mt-2 text-zinc-100 text-sm leading-relaxed break-words" data-role="quote"></div>
-          <div class="mt-2 text-xs text-zinc-400 flex flex-wrap gap-x-3 gap-y-1" data-role="sub"></div>
-        </div>
-        <button class="delete px-2 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm" data-role="del">Delete</button>
-      </div>
-    </div>
-  </template>
-
-  <script>
-    const apiSchema = async()=>fetch('/api/db/schema').then(r=>r.json());
-    const exec = async (sql, params=[])=>fetch('/api/db/execute',{
-      method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({sql,params})
-    }).then(r=>r.json());
-
-    const hasPrice = async()=> {
-      try{
-        const s = await apiSchema();
-        const cols = (s?.tables?.quotes?.columns) || (s?.tables?.['quotes']?.columns);
-        if(!cols) return true;
-        return Object.prototype.hasOwnProperty.call(cols,'price') || Object.prototype.hasOwnProperty.call(cols, 'PRICE');
-      }catch{ return true; }
-    };
-
-    const fmtMoney = (n)=>{
-      if(n===null||n===undefined||n==='') return '';
-      const x = Number(n);
-      if(!isFinite(x)) return '';
-      return x.toLocaleString(undefined,{style:'currency',currency:'USD'});
-    };
-
-    let priceColReady = null;
-    const load = async()=>{
-      if(priceColReady===null) priceColReady = await hasPrice();
-      const q = document.getElementById('q').value.trim();
-      const where = q ? 'WHERE quotes.quote LIKE ? OR COALESCE(quotes.author,\"\") LIKE ? OR COALESCE(quotes.source,\"\") LIKE ? OR COALESCE(quotes.tags,\"\") LIKE ?' : '';
-      const params = q ? [`%${q}%`,`%${q}%`,`%${q}%`,`%${q}%`] : [];
-      const sql = `
-        SELECT quotes.id, quotes.quote, quotes.author, quotes.source, quotes.tags, quotes.created_at, quote_due_dates.due_date
-        ${priceColReady ? ', quotes.price' : ', NULL as price'}
-        FROM quotes
-        LEFT JOIN quote_due_dates ON quote_due_dates.quote_id = quotes.id
-        ${where}
-        ORDER BY quotes.created_at DESC
-        LIMIT 200
-      `;
-      const res = await exec(sql, params);
-      const list = document.getElementById('list');
-      list.innerHTML='';
-      const rows = res?.rows || res;
-      if(!rows || rows.length===0){
-        list.innerHTML = `<div class="text-zinc-500 text-sm p-2">No results.</div>`;
-        return;
-      }
-      const tpl = document.getElementById('rowTpl');
-      for(const r of rows){
-        const node = tpl.content.cloneNode(true);
-        const el = (sel)=>node.querySelector(`[data-role="${sel}"]`);
-        el('id').textContent = `#${r.id}`;
-        el('meta').textContent = r.due_date ? `Due ${r.due_date}` : 'No due date';
-        el('quote').textContent = r.quote;
-        const tags = (r.tags||'').trim();
-        el('sub').innerHTML = `
-          ${r.author ? `<span>— ${escapeHtml(r.author)}</span>` : ``}
-          ${r.source ? `<span>${escapeHtml(r.source)}</span>` : ``}
-          ${tags ? `<span class="text-indigo-300">Tags: ${escapeHtml(tags)}</span>` : ``}
-          ${priceColReady ? (r.price!==null && r.price!==undefined && r.price!=='' ? `<span class="text-emerald-300">Price: ${escapeHtml(fmtMoney(r.price))}</span>` : '') : ''}
-        `;
-        node.querySelector('[data-role="del"]').addEventListener('click', async ()=>{
-          if(!confirm('Delete this quote?')) return;
-          await exec('DELETE FROM quotes WHERE id=?',[r.id]);
-          await load();
-        });
-        list.appendChild(node);
-      }
-    };
-
-    function escapeHtml(s){
-      return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-    }
-
-    document.getElementById('addForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const fd = new FormData(e.currentTarget);
-      const quote = (fd.get('quote')||'').toString().trim();
-      const author = (fd.get('author')||'').toString().trim() || null;
-      const source = (fd.get('source')||'').toString().trim() || null;
-      const tags = (fd.get('tags')||'').toString().trim() || null;
-      const due_date = (fd.get('due_date')||'').toString().trim() || null;
-      const priceRaw = (fd.get('price')||'').toString().trim();
-      const price = priceRaw==='' ? null : Number(priceRaw);
-
-      const priceOk = await hasPrice();
-      if(priceOk){
-        const res = await exec(
-          'INSERT INTO quotes(quote,author,source,tags,price) VALUES(?,?,?,?,?)',
-          [quote, author, source, tags, price]
-        );
-        const id = res?.lastID;
-        if(due_date) await exec('INSERT OR REPLACE INTO quote_due_dates(quote_id,due_date) VALUES(?,?)',[id,due_date]);
-      }else{
-        const res = await exec(
-          'INSERT INTO quotes(quote,author,source,tags) VALUES(?,?,?,?)',
-          [quote, author, source, tags]
-        );
-        const id = res?.lastID;
-        if(due_date) await exec('INSERT OR REPLACE INTO quote_due_dates(quote_id,due_date) VALUES(?,?)',[id,due_date]);
-      }
-      e.currentTarget.reset();
-      await load();
-    });
-
-    document.getElementById('refresh').addEventListener('click', load);
-    document.getElementById('q').addEventListener('input', ()=>load());
-    load();
-  </script>
+<script>
+const q=(s,p=[])=>fetch('/api/db/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sql:s,params:p})}).then(r=>r.json())
+const el=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m]))
+let customers=[]
+async function load(){
+  const [cq,cc]=await Promise.all([
+    q(`SELECT q.id,q.quote,q.author,q.source,q.tags,q.price,q.created_at, group_concat(c.name, ', ') customers
+       FROM quotes q
+       LEFT JOIN quote_customers qc ON qc.quote_id=q.id
+       LEFT JOIN customers c ON c.id=qc.customer_id
+       GROUP BY q.id ORDER BY q.created_at DESC`),
+    q(`SELECT id,name,company FROM customers ORDER BY name`)
+  ])
+  const rows=cq.rows||[]; customers=cc.rows||[]
+  el('#count').textContent=`${rows.length} quotes`
+  el('#quotes').innerHTML=rows.map(r=>`<div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4"><div class="flex justify-between gap-3"><div><div class="font-medium">${esc(r.quote)}</div><div class="text-sm text-zinc-400">${esc([r.author,r.source].filter(Boolean).join(' · '))}</div></div><div class="flex flex-col items-end gap-2"><div class="font-semibold">${r.price!=null?'$'+Number(r.price).toFixed(2):''}</div><div class="text-xs text-zinc-500">${esc(r.created_at)}</div></div></div><div class="mt-2 text-sm text-zinc-400">${esc(r.tags||'')}</div><div class="mt-2 text-sm text-zinc-300">${esc(r.customers||'—')}</div><div class="mt-3 flex gap-2"><button data-edit='${esc(JSON.stringify(r))}' class="edit px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm">Edit</button><button data-del="${r.id}" class="del px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-sm">Delete</button></div></div>`).join('')||'<div class="text-zinc-500">No quotes yet.</div>'
+  el('#customers').innerHTML=customers.map(c=>`<div class="flex items-center justify-between rounded-lg border border-zinc-800 px-3 py-2"><div><div>${esc(c.name)}</div><div class="text-xs text-zinc-500">${esc(c.company||'')}</div></div><div class="text-zinc-500">#${c.id}</div></div>`).join('')||'<div class="text-zinc-500">No customers found.</div>'
+  el('#customerSelect').innerHTML='<option value="">No customer link</option>'+customers.map(c=>`<option value="${c.id}">${esc(c.name)}${c.company?' — '+esc(c.company):''}</option>`).join('')
+  document.querySelectorAll('.edit').forEach(b=>b.onclick=()=>fillEdit(JSON.parse(b.dataset.edit)))
+  document.querySelectorAll('.del').forEach(b=>b.onclick=()=>removeQuote(b.dataset.del))
+}
+function fillEdit(r){
+  const f=el('#quoteForm')
+  f.id.value=r.id||''
+  f.quote.value=r.quote||''
+  f.author.value=r.author||''
+  f.price.value=r.price??''
+  f.source.value=r.source||''
+  f.tags.value=r.tags||''
+  el('#saveBtn').textContent='Save Quote'
+  el('#cancelEdit').classList.remove('hidden')
+  el('#msg').textContent=`Editing #${r.id}`
+}
+function resetForm(){
+  const f=el('#quoteForm')
+  f.reset(); f.id.value=''
+  el('#saveBtn').textContent='Add Quote'
+  el('#cancelEdit').classList.add('hidden')
+  el('#msg').textContent=''
+}
+async function removeQuote(id){
+  if(!confirm('Delete this quote?')) return
+  await q('DELETE FROM quote_customers WHERE quote_id=?',[id])
+  await q('DELETE FROM quotes WHERE id=?',[id])
+  resetForm(); load()
+}
+el('#quoteForm').onsubmit=async e=>{
+  e.preventDefault()
+  const f=new FormData(e.target), id=f.get('id')
+  if(id){
+    await q('UPDATE quotes SET quote=?,author=?,source=?,tags=?,price=? WHERE id=?',[f.get('quote'),f.get('author')||null,f.get('source')||null,f.get('tags')||null,f.get('price')||null,id])
+    await q('DELETE FROM quote_customers WHERE quote_id=?',[id])
+    if(f.get('customer_id')) await q('INSERT INTO quote_customers(quote_id,customer_id) VALUES(?,?)',[id,f.get('customer_id')])
+    el('#msg').textContent='Updated.'
+  }else{
+    const res=await q('INSERT INTO quotes(quote,author,source,tags,price) VALUES(?,?,?,?,?)',[f.get('quote'),f.get('author')||null,f.get('source')||null,f.get('tags')||null,f.get('price')||null])
+    const cid=f.get('customer_id')
+    if(cid) await q('INSERT INTO quote_customers(quote_id,customer_id) VALUES(?,?)',[res.last_insert_rowid,cid])
+    el('#msg').textContent='Saved.'
+  }
+  resetForm(); load()
+}
+el('#cancelEdit').onclick=resetForm
+el('#refresh').onclick=load
+load()
+</script>
 </body>
 </html>

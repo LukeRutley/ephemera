@@ -34,6 +34,16 @@ If the page depends on tables that do not exist yet, create them with the databa
 When returning an interactive page, use absolute same-origin paths like /api/db/execute.
 Prefer parameterized SQL for page-side writes and reads.
 """.strip()
+TWEAK_PROMPT = """
+You are revising an existing HTML page instead of creating a brand new one.
+
+Required behavior:
+- Treat the provided current HTML as the starting point.
+- Apply the user's requested changes to that HTML.
+- Preserve parts of the page the user did not ask to change unless they conflict with the requested tweak.
+- Return a single complete .html document only.
+- Do not describe the changes in prose.
+""".strip()
 SCHEMA_CONSOLIDATION_PROMPT = """
 You are performing SQLite schema maintenance for a local app.
 
@@ -395,7 +405,7 @@ def create_tool_response(
 
     for _ in range(max_turns):
         request_payload = {
-            "model": "gpt-5.4-nano",
+            "model": "gpt-5.4-mini",
             "input": cast(Any, request_input),
             "text": {"format": {"type": "text"}, "verbosity": "low"},
             "reasoning": cast(Any, {"effort": "none", "summary": "auto"}),
@@ -454,6 +464,21 @@ def create_tool_response(
 
 def create_html_response(messages: list[str]) -> object:
     return create_tool_response([SYSTEM_PROMPT, DATABASE_PROMPT], messages)
+
+
+def create_tweak_response(messages: list[str], html: str, tweak_message: str) -> object:
+    tweak_input = "\n\n".join(
+        [
+            "Current HTML:\n```html",
+            html,
+            "```",
+            f"Requested changes:\n{tweak_message}",
+        ]
+    )
+    return create_tool_response(
+        [SYSTEM_PROMPT, DATABASE_PROMPT, TWEAK_PROMPT],
+        [*messages, tweak_input],
+    )
 
 
 def consolidate_database_schema() -> str:
@@ -624,6 +649,40 @@ def send() -> tuple[Response, int] | Response:
     thread["html_history"].append(html)
     thread["current_html_index"] = len(thread["html_history"]) - 1
     write_content_file(html)
+    return jsonify(serialize_thread(thread))
+
+
+@app.post("/tweak")
+def tweak() -> tuple[Response, int] | Response:
+    payload = request.get_json(silent=True) or {}
+    message = str(payload.get("message", "")).strip()
+    if not message:
+        return jsonify({"error": "Message is required."}), 400
+
+    thread = get_thread()
+    html = current_html(thread).strip()
+    if not html:
+        return jsonify({"error": "There is no current HTML page to tweak."}), 400
+
+    messages = [*thread["messages"], message]
+
+    try:
+        response = create_tweak_response(thread["messages"], html, message)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    tweaked_html = extract_html(response)
+    if not tweaked_html:
+        return jsonify({"error": "OpenAI returned an empty response."}), 502
+
+    current_index = int(thread["current_html_index"])
+    if current_index < len(thread["html_history"]) - 1:
+        thread["html_history"] = thread["html_history"][: current_index + 1]
+
+    thread["messages"] = messages
+    thread["html_history"].append(tweaked_html)
+    thread["current_html_index"] = len(thread["html_history"]) - 1
+    write_content_file(tweaked_html)
     return jsonify(serialize_thread(thread))
 
 

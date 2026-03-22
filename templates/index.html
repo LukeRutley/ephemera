@@ -489,6 +489,10 @@
             <span class="spinner" aria-hidden="true"></span>
             <span id="sendLabel">Send</span>
           </button>
+          <button class="button button-secondary" id="tweakButton" type="button">
+            <span class="spinner" aria-hidden="true"></span>
+            <span id="tweakLabel">Tweak</span>
+          </button>
           <button class="button button-danger" id="newTopicButton" type="button">New topic</button>
         </div>
       </div>
@@ -505,6 +509,8 @@
     const viewer = document.getElementById("viewer");
     const sendButton = document.getElementById("sendButton");
     const sendLabel = document.getElementById("sendLabel");
+    const tweakButton = document.getElementById("tweakButton");
+    const tweakLabel = document.getElementById("tweakLabel");
     const backButton = document.getElementById("backButton");
     const nextButton = document.getElementById("nextButton");
     const newTopicButton = document.getElementById("newTopicButton");
@@ -604,6 +610,7 @@
 
     function setLoading(isLoading) {
       sendButton.disabled = isLoading;
+      tweakButton.disabled = isLoading;
       backButton.disabled = isLoading || !state.can_go_back;
       nextButton.disabled = isLoading || !state.can_go_forward;
       newTopicButton.disabled = isLoading;
@@ -611,7 +618,9 @@
       savedPagesToggle.disabled = isLoading;
       consolidateSchemaButton.disabled = isLoading;
       sendButton.classList.toggle("is-loading", isLoading);
+      tweakButton.classList.toggle("is-loading", isLoading);
       sendLabel.textContent = isLoading ? "Sending" : "Send";
+      tweakLabel.textContent = isLoading ? "Tweaking" : "Tweak";
     }
 
     function setButtonLoading(button, isLoading) {
@@ -703,6 +712,26 @@
 
       try {
         const payload = await postJson("{{ url_for('send') }}", { message });
+        syncState(payload);
+        input.value = "";
+        resizeTextarea();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    tweakButton.addEventListener("click", async () => {
+      const message = input.value.trim();
+      if (!message) {
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const payload = await postJson("{{ url_for('tweak') }}", { message });
         syncState(payload);
         input.value = "";
         resizeTextarea();
