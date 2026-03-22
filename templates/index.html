@@ -217,8 +217,23 @@
       padding: 0.75rem 0.9rem;
     }
 
+    .maintenance-button-floating {
+      position: fixed;
+      top: 1.25rem;
+      right: 1.25rem;
+      z-index: 3;
+      background: rgba(125, 211, 252, 0.16);
+      color: var(--text);
+      border: 1px solid rgba(125, 211, 252, 0.3);
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      min-width: auto;
+      padding: 0.75rem 0.95rem;
+    }
+
     .back-button-floating:hover:not(:disabled),
-    .next-button-floating:hover:not(:disabled) {
+    .next-button-floating:hover:not(:disabled),
+    .maintenance-button-floating:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.12);
       border-color: rgba(125, 211, 252, 0.55);
     }
@@ -255,6 +270,11 @@
         top: 0.75rem;
         left: 4rem;
       }
+
+      .maintenance-button-floating {
+        top: 0.75rem;
+        right: 0.75rem;
+      }
     }
   </style>
 </head>
@@ -264,6 +284,10 @@
 
     <button class="button button-secondary back-button-floating" id="backButton" type="button">←</button>
     <button class="button button-secondary next-button-floating" id="nextButton" type="button">→</button>
+    <button class="button maintenance-button-floating" id="consolidateSchemaButton" type="button">
+      <span class="spinner" aria-hidden="true"></span>
+      <span id="consolidateSchemaLabel">Compact DB</span>
+    </button>
 
     <form class="composer" id="composer">
       <div class="composer-row">
@@ -298,6 +322,8 @@
     const backButton = document.getElementById("backButton");
     const nextButton = document.getElementById("nextButton");
     const newTopicButton = document.getElementById("newTopicButton");
+    const consolidateSchemaButton = document.getElementById("consolidateSchemaButton");
+    const consolidateSchemaLabel = document.getElementById("consolidateSchemaLabel");
 
     // Auto-grow textarea
     function resizeTextarea() {
@@ -326,8 +352,11 @@
       backButton.disabled = isLoading || !state.can_go_back;
       nextButton.disabled = isLoading || !state.can_go_forward;
       newTopicButton.disabled = isLoading;
+      consolidateSchemaButton.disabled = isLoading;
       sendButton.classList.toggle("is-loading", isLoading);
+      consolidateSchemaButton.classList.toggle("is-loading", isLoading);
       sendLabel.textContent = isLoading ? "Sending" : "Send";
+      consolidateSchemaLabel.textContent = isLoading ? "Compacting" : "Compact DB";
     }
 
     async function postJson(url, body = {}) {
@@ -403,6 +432,20 @@
         syncState(payload);
       } catch (error) {
         console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    consolidateSchemaButton.addEventListener("click", async () => {
+      setLoading(true);
+
+      try {
+        const payload = await postJson("{{ url_for('consolidate_schema') }}");
+        window.alert(payload.summary || "Database schema consolidation completed.");
+      } catch (error) {
+        console.error(error);
+        window.alert(error instanceof Error ? error.message : "Schema consolidation failed.");
       } finally {
         setLoading(false);
       }
