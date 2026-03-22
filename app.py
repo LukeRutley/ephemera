@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any, TypedDict, cast
@@ -156,8 +157,24 @@ def ensure_database() -> None:
 
             INSERT OR IGNORE INTO app_metadata (key, value)
             VALUES ('app_name', 'ephemera');
+
+            CREATE TABLE IF NOT EXISTS saved_pages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                html TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_accessed_at TEXT
+            );
             """
         )
+
+        saved_page_columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(saved_pages)").fetchall()
+        }
+        if "last_accessed_at" not in saved_page_columns:
+            connection.execute("ALTER TABLE saved_pages ADD COLUMN last_accessed_at TEXT")
+
         connection.commit()
 
 
@@ -462,12 +479,96 @@ def normalize_html(html: str) -> str:
     return cleaned
 
 
+def extract_title_from_html(html: str) -> str:
+    match = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+    if not match:
+        return "Untitled page"
+
+    title = re.sub(r"\s+", " ", match.group(1)).strip()
+    return title or "Untitled page"
+
+
 def current_html(thread: ThreadState) -> str:
     html_history = thread["html_history"]
     current_index = int(thread["current_html_index"])
     if not html_history or current_index < 0:
         return read_content_file()
     return str(html_history[current_index])
+
+
+def list_saved_pages() -> list[dict[str, object]]:
+    with get_db_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, title, created_at, last_accessed_at
+            FROM saved_pages
+            ORDER BY COALESCE(last_accessed_at, created_at) DESC, created_at DESC, id DESC
+            """
+        ).fetchall()
+
+    return [
+        {
+            "id": int(row["id"]),
+            "title": str(row["title"]),
+            "created_at": str(row["created_at"]),
+            "last_accessed_at": serialize_sql_value(row["last_accessed_at"]),
+        }
+        for row in rows
+    ]
+
+
+def save_current_page(thread: ThreadState) -> dict[str, object]:
+    html = current_html(thread).strip()
+    if not html:
+        raise ValueError("There is no page to save yet.")
+
+    title = extract_title_from_html(html)
+
+    with get_db_connection() as connection:
+        cursor = connection.execute(
+            "INSERT INTO saved_pages (title, html) VALUES (?, ?)",
+            (title, html),
+        )
+        connection.commit()
+
+    saved_page_id = cursor.lastrowid
+    if saved_page_id is None:
+        raise RuntimeError("Saved page ID was not returned.")
+
+    return {
+        "id": int(saved_page_id),
+        "title": title,
+    }
+
+
+def open_saved_page(thread: ThreadState, saved_page_id: int) -> None:
+    with get_db_connection() as connection:
+        row = connection.execute(
+            "SELECT html FROM saved_pages WHERE id = ?",
+            (saved_page_id,),
+        ).fetchone()
+
+    if row is None:
+        raise ValueError("Saved page not found.")
+
+    connection = get_db_connection()
+    try:
+        connection.execute(
+            "UPDATE saved_pages SET last_accessed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (saved_page_id,),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    html = str(row["html"])
+    current_index = int(thread["current_html_index"])
+    if current_index < len(thread["html_history"]) - 1:
+        thread["html_history"] = thread["html_history"][: current_index + 1]
+
+    thread["html_history"].append(html)
+    thread["current_html_index"] = len(thread["html_history"]) - 1
+    write_content_file(html)
 
 
 def serialize_thread(thread: ThreadState) -> dict[str, object]:
@@ -478,6 +579,7 @@ def serialize_thread(thread: ThreadState) -> dict[str, object]:
         "messages": list(thread["messages"]),
         "can_go_back": current_index > 0,
         "can_go_forward": 0 <= current_index < history_length - 1,
+        "saved_pages": list_saved_pages(),
     }
 
 
@@ -536,6 +638,40 @@ def consolidate_schema() -> tuple[Response, int] | Response:
         return jsonify({"error": str(exc)}), 500
 
     return jsonify({"ok": True, "summary": summary, "schema": schema})
+
+
+@app.post("/saved-pages")
+def create_saved_page() -> tuple[Response, int] | Response:
+    thread = get_thread()
+
+    try:
+        saved_page = save_current_page(thread)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except sqlite3.Error as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    payload = serialize_thread(thread)
+    payload["saved_page"] = saved_page
+    return jsonify(payload)
+
+
+@app.post("/saved-pages/<int:saved_page_id>/open")
+def restore_saved_page(saved_page_id: int) -> tuple[Response, int] | Response:
+    thread = get_thread()
+
+    try:
+        open_saved_page(thread, saved_page_id)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except sqlite3.Error as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    return jsonify(serialize_thread(thread))
 
 
 @app.get("/api/db/schema")

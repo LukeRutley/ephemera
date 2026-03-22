@@ -218,24 +218,161 @@
     }
 
     .maintenance-button-floating {
+      background: rgba(125, 211, 252, 0.16);
+      border-color: rgba(125, 211, 252, 0.3);
+    }
+
+    .top-right-controls {
       position: fixed;
       top: 1.25rem;
       right: 1.25rem;
-      z-index: 3;
-      background: rgba(125, 211, 252, 0.16);
+      z-index: 4;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+    }
+
+    .saved-pages-menu {
+      position: relative;
+    }
+
+    .icon-button {
+      position: relative;
+      min-width: auto;
+      width: 3rem;
+      height: 3rem;
+      padding: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
       color: var(--text);
-      border: 1px solid rgba(125, 211, 252, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(18px) saturate(140%);
       -webkit-backdrop-filter: blur(18px) saturate(140%);
-      min-width: auto;
-      padding: 0.75rem 0.95rem;
+      box-shadow: var(--shadow);
+    }
+
+    .icon-button .spinner {
+      position: absolute;
+    }
+
+    .icon-button.is-loading .button-icon {
+      opacity: 0;
+    }
+
+    .button-icon {
+      width: 1.2rem;
+      height: 1.2rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 160ms ease;
+    }
+
+    .button-icon svg {
+      width: 100%;
+      height: 100%;
+      stroke: currentColor;
     }
 
     .back-button-floating:hover:not(:disabled),
     .next-button-floating:hover:not(:disabled),
-    .maintenance-button-floating:hover:not(:disabled) {
+    .icon-button:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.12);
       border-color: rgba(125, 211, 252, 0.55);
+    }
+
+    .saved-pages-dropdown {
+      position: absolute;
+      top: calc(100% + 0.75rem);
+      right: 0;
+      width: min(22rem, calc(100vw - 2rem));
+      padding: 0.5rem;
+      border: 1px solid var(--panel-border);
+      border-radius: 1rem;
+      background: rgba(7, 17, 31, 0.92);
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      box-shadow: var(--shadow);
+      display: none;
+    }
+
+    .saved-pages-dropdown.is-open {
+      display: block;
+    }
+
+    .saved-pages-header {
+      padding: 0.55rem 0.7rem 0.35rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .saved-pages-search {
+      width: 100%;
+      margin-bottom: 0.45rem;
+      border: 1px solid transparent;
+      border-radius: 0.85rem;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      padding: 0.75rem 0.85rem;
+      font: inherit;
+      transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+    }
+
+    .saved-pages-search::placeholder {
+      color: rgba(246, 247, 251, 0.45);
+    }
+
+    .saved-pages-search:focus {
+      outline: none;
+      border-color: rgba(125, 211, 252, 0.55);
+      background: rgba(255, 255, 255, 0.11);
+      box-shadow: 0 0 0 0.2rem rgba(56, 189, 248, 0.14);
+    }
+
+    .saved-pages-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      max-height: 18rem;
+      overflow-y: auto;
+    }
+
+    .saved-page-item,
+    .saved-pages-empty {
+      width: 100%;
+      padding: 0.75rem 0.8rem;
+      border: 0;
+      border-radius: 0.8rem;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+    }
+
+    .saved-page-item {
+      cursor: pointer;
+      transition: background 160ms ease;
+    }
+
+    .saved-page-item:hover,
+    .saved-page-item:focus-visible {
+      outline: none;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .saved-page-title {
+      display: block;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .saved-page-meta,
+    .saved-pages-empty {
+      display: block;
+      margin-top: 0.2rem;
+      font-size: 0.82rem;
+      color: var(--muted);
     }
 
     @media (max-width: 640px) {
@@ -275,6 +412,11 @@
         top: 0.75rem;
         right: 0.75rem;
       }
+
+      .top-right-controls {
+        top: 0.75rem;
+        right: 0.75rem;
+      }
     }
   </style>
 </head>
@@ -284,10 +426,54 @@
 
     <button class="button button-secondary back-button-floating" id="backButton" type="button">←</button>
     <button class="button button-secondary next-button-floating" id="nextButton" type="button">→</button>
-    <button class="button maintenance-button-floating" id="consolidateSchemaButton" type="button">
-      <span class="spinner" aria-hidden="true"></span>
-      <span id="consolidateSchemaLabel">Compact DB</span>
-    </button>
+    <div class="top-right-controls">
+      <button class="button icon-button" id="savePageButton" type="button" aria-label="Save current page" title="Save current page">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="button-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 3.75h11.5l2.75 2.75V20.25H5z"></path>
+            <path d="M8 3.75v5.5h8v-5.5"></path>
+            <path d="M9 15.25h6"></path>
+          </svg>
+        </span>
+      </button>
+
+      <div class="saved-pages-menu">
+        <button class="button icon-button" id="savedPagesToggle" type="button" aria-label="Show saved pages" title="Show saved pages" aria-expanded="false">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="button-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.75 4.75h10.5a1.5 1.5 0 0 1 1.5 1.5v11.5l-3.75-2-3.75 2-3.75-2-3.75 2V6.25a1.5 1.5 0 0 1 1.5-1.5z"></path>
+              <path d="M8.5 8.5h7"></path>
+              <path d="M8.5 12h5"></path>
+            </svg>
+          </span>
+        </button>
+
+        <div class="saved-pages-dropdown" id="savedPagesDropdown">
+          <div class="saved-pages-header">Saved pages</div>
+          <input
+            class="saved-pages-search"
+            id="savedPagesSearch"
+            type="search"
+            placeholder="Search saved pages"
+            autocomplete="off"
+          />
+          <div class="saved-pages-list" id="savedPagesList"></div>
+        </div>
+      </div>
+
+      <button class="button maintenance-button-floating icon-button" id="consolidateSchemaButton" type="button" aria-label="Compact database" title="Compact database">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="button-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5.5" rx="6.5" ry="2.75"></ellipse>
+            <path d="M5.5 5.5v5c0 1.52 2.91 2.75 6.5 2.75s6.5-1.23 6.5-2.75v-5"></path>
+            <path d="M5.5 10.5v5c0 1.52 2.91 2.75 6.5 2.75s6.5-1.23 6.5-2.75v-5"></path>
+          </svg>
+        </span>
+      </button>
+    </div>
 
     <form class="composer" id="composer">
       <div class="composer-row">
@@ -322,8 +508,75 @@
     const backButton = document.getElementById("backButton");
     const nextButton = document.getElementById("nextButton");
     const newTopicButton = document.getElementById("newTopicButton");
+    const savePageButton = document.getElementById("savePageButton");
+    const savedPagesToggle = document.getElementById("savedPagesToggle");
+    const savedPagesDropdown = document.getElementById("savedPagesDropdown");
+    const savedPagesSearch = document.getElementById("savedPagesSearch");
+    const savedPagesList = document.getElementById("savedPagesList");
     const consolidateSchemaButton = document.getElementById("consolidateSchemaButton");
-    const consolidateSchemaLabel = document.getElementById("consolidateSchemaLabel");
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[character]));
+    }
+
+    function formatSavedPageDate(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return "Saved page";
+      }
+
+      return date.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+    }
+
+    function closeSavedPagesMenu() {
+      savedPagesDropdown.classList.remove("is-open");
+      savedPagesToggle.setAttribute("aria-expanded", "false");
+    }
+
+    function toggleSavedPagesMenu() {
+      const isOpen = savedPagesDropdown.classList.toggle("is-open");
+      savedPagesToggle.setAttribute("aria-expanded", String(isOpen));
+      if (isOpen) {
+        savedPagesSearch.focus();
+      }
+    }
+
+    function renderSavedPages() {
+      const savedPages = Array.isArray(state.saved_pages) ? state.saved_pages : [];
+      const query = savedPagesSearch.value.trim().toLowerCase();
+      const filteredPages = savedPages.filter((page) => {
+        if (!query) {
+          return true;
+        }
+
+        return String(page.title || "").toLowerCase().includes(query);
+      });
+
+      if (!filteredPages.length) {
+        savedPagesList.innerHTML = query
+          ? '<div class="saved-pages-empty">No saved pages match that search.</div>'
+          : '<div class="saved-pages-empty">No saved pages yet.</div>';
+        return;
+      }
+
+      savedPagesList.innerHTML = filteredPages.map((page) => `
+        <button class="saved-page-item" type="button" data-saved-page-id="${page.id}">
+          <span class="saved-page-title">${escapeHtml(page.title || "Untitled page")}</span>
+          <span class="saved-page-meta">${escapeHtml(formatSavedPageDate(page.last_accessed_at || page.created_at))}</span>
+        </button>
+      `).join("");
+    }
 
     // Auto-grow textarea
     function resizeTextarea() {
@@ -342,7 +595,9 @@
       state.messages = nextState.messages || [];
       state.can_go_back = Boolean(nextState.can_go_back);
       state.can_go_forward = Boolean(nextState.can_go_forward);
+      state.saved_pages = Array.isArray(nextState.saved_pages) ? nextState.saved_pages : [];
       renderHtml(state.html);
+      renderSavedPages();
       backButton.disabled = !state.can_go_back;
       nextButton.disabled = !state.can_go_forward;
     }
@@ -352,11 +607,16 @@
       backButton.disabled = isLoading || !state.can_go_back;
       nextButton.disabled = isLoading || !state.can_go_forward;
       newTopicButton.disabled = isLoading;
+      savePageButton.disabled = isLoading;
+      savedPagesToggle.disabled = isLoading;
       consolidateSchemaButton.disabled = isLoading;
       sendButton.classList.toggle("is-loading", isLoading);
-      consolidateSchemaButton.classList.toggle("is-loading", isLoading);
       sendLabel.textContent = isLoading ? "Sending" : "Send";
-      consolidateSchemaLabel.textContent = isLoading ? "Compacting" : "Compact DB";
+    }
+
+    function setButtonLoading(button, isLoading) {
+      button.classList.toggle("is-loading", isLoading);
+      button.disabled = isLoading;
     }
 
     async function postJson(url, body = {}) {
@@ -374,6 +634,62 @@
     }
 
     syncState(state);
+    resizeTextarea();
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".saved-pages-menu")) {
+        closeSavedPagesMenu();
+      }
+    });
+
+    savedPagesToggle.addEventListener("click", () => {
+      toggleSavedPagesMenu();
+    });
+
+    savedPagesSearch.addEventListener("input", () => {
+      renderSavedPages();
+    });
+
+    savedPagesList.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-saved-page-id]");
+      if (!button) {
+        return;
+      }
+
+      const savedPageId = button.getAttribute("data-saved-page-id");
+      if (!savedPageId) {
+        return;
+      }
+
+      closeSavedPagesMenu();
+      setButtonLoading(savedPagesToggle, true);
+
+      try {
+        const payload = await postJson(`/saved-pages/${savedPageId}/open`);
+        syncState(payload);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setButtonLoading(savedPagesToggle, false);
+      }
+    });
+
+    savePageButton.addEventListener("click", async () => {
+      setButtonLoading(savePageButton, true);
+
+      try {
+        const payload = await postJson("{{ url_for('create_saved_page') }}");
+        syncState(payload);
+        savedPagesDropdown.classList.add("is-open");
+        savedPagesToggle.setAttribute("aria-expanded", "true");
+        savedPagesSearch.focus();
+      } catch (error) {
+        console.error(error);
+        window.alert(error instanceof Error ? error.message : "Saving page failed.");
+      } finally {
+        setButtonLoading(savePageButton, false);
+      }
+    });
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -438,7 +754,7 @@
     });
 
     consolidateSchemaButton.addEventListener("click", async () => {
-      setLoading(true);
+      setButtonLoading(consolidateSchemaButton, true);
 
       try {
         const payload = await postJson("{{ url_for('consolidate_schema') }}");
@@ -447,7 +763,7 @@
         console.error(error);
         window.alert(error instanceof Error ? error.message : "Schema consolidation failed.");
       } finally {
-        setLoading(false);
+        setButtonLoading(consolidateSchemaButton, false);
       }
     });
   </script>
