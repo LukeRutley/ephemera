@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add User</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100">
+  <div class="max-w-5xl mx-auto px-4 py-10">
+    <div class="flex items-start justify-between gap-6">
+      <div>
+        <div class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-sm ring-1 ring-white/10">
+          <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_20px_rgba(52,211,153,.6)]"></span>
+          Admin Console
+        </div>
+        <h1 class="mt-4 text-3xl md:text-4xl font-semibold tracking-tight">Add a new user</h1>
+        <p class="mt-2 text-slate-300">Create an account in seconds. Fields marked required must be filled.</p>
+      </div>
+      <div class="hidden sm:block w-72 shrink-0">
+        <div class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+          <div class="flex items-center justify-between">
+            <div class="text-sm text-slate-300">Status</div>
+            <div id="statusPill" class="px-3 py-1 rounded-full bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/25 text-xs font-medium">Draft</div>
+          </div>
+          <div class="mt-4 flex items-center gap-3">
+            <div class="relative">
+              <div class="h-12 w-12 rounded-2xl bg-indigo-500/20 ring-1 ring-indigo-400/30 flex items-center justify-center">
+                <svg class="w-6 h-6 text-indigo-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="8" r="4"></circle>
+                </svg>
+              </div>
+              <div id="pulseDot" class="absolute -right-1 -bottom-1 h-3.5 w-3.5 rounded-full bg-indigo-400 shadow-[0_0_25px_rgba(129,140,248,.7)]"></div>
+            </div>
+            <div class="min-w-0">
+              <div class="text-sm text-slate-200 font-medium truncate" id="previewName">New user</div>
+              <div class="text-xs text-slate-400 mt-1 truncate" id="previewEmail">—</div>
+              <div class="mt-3">
+                <div class="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                  <div id="progressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-[width] duration-300"></div>
+                </div>
+                <div class="mt-1 flex justify-between text-[11px] text-slate-400">
+                  <span>Profile</span><span id="progressLabel">0%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-300">Auto-validation</div>
+              <div class="text-[11px] text-slate-400">Live</div>
+            </div>
+            <ul class="mt-2 space-y-1 text-[12px] text-slate-300" id="checks">
+              <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-white/15 ring-1 ring-white/20"></span><span id="c1">Name required</span></li>
+              <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-white/15 ring-1 ring-white/20"></span><span id="c2">Email required</span></li>
+              <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-white/15 ring-1 ring-white/20"></span><span id="c3">Role selected</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-8 grid lg:grid-cols-2 gap-6">
+      <form id="addUserForm" class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 md:p-6">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold">User details</h2>
+          <button type="button" id="randomizeBtn" class="inline-flex items-center gap-2 rounded-xl bg-white/5 hover:bg-white/10 ring-1 ring-white/10 px-3 py-2 text-sm text-slate-200 transition">
+            <svg class="w-4 h-4 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-18 0a9 9 0 0 1 18 0Z"></path>
+              <path d="M12 7v5l3 3"></path>
+            </svg>
+            Smart fill
+          </button>
+        </div>
+
+        <div class="mt-5 grid sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-1">
+            <label class="text-sm text-slate-300" for="name">Full name *</label>
+            <input id="name" name="name" required minlength="2" autocomplete="off"
+              class="mt-2 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-400/50 focus:bg-black/30 transition"
+              placeholder="e.g., Jordan Lee" />
+            <p class="mt-2 hidden text-xs text-rose-300" id="nameErr">Please enter a valid name.</p>
+          </div>
+
+          <div class="sm:col-span-1">
+            <label class="text-sm text-slate-300" for="email">Email *</label>
+            <input id="email" name="email" type="email" required autocomplete="off"
+              class="mt-2 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-400/50 focus:bg-black/30 transition"
+              placeholder="e.g., jordan@company.com" />
+            <p class="mt-2 hidden text-xs text-rose-300" id="emailErr">Please enter a valid email address.</p>
+          </div>
+
+          <div class="sm:col-span-1">
+            <label class="text-sm text-slate-300" for="role">Role *</label>
+            <select id="role" name="role" required
+              class="mt-2 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-400/50 focus:bg-black/30 transition">
+              <option value="" selected disabled>Select a role</option>
+              <option>Admin</option>
+              <option>Manager</option>
+              <option>Support</option>
+              <option>Viewer</option>
+            </select>
+            <p class="mt-2 hidden text-xs text-rose-300" id="roleErr">Choose a role to continue.</p>
+          </div>
+
+          <div class="sm:col-span-1">
+            <label class="text-sm text-slate-300" for="team">Team</label>
+            <input id="team" name="team"
+              class="mt-2 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-400/50 focus:bg-black/30 transition"
+              placeholder="e.g., Platform" />
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="text-sm text-slate-300" for="access">Access policy</label>
+            <div class="mt-2 rounded-xl bg-black/20 ring-1 ring-white/10 p-3">
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-sm font-medium text-slate-200">Temporary invite</div>
+                  <div class="text-xs text-slate-400">Send an invite link; user can set their own password.</div>
+                </div>
+                <label class="inline-flex items-center gap-3 cursor-pointer select-none">
+                  <input id="inviteToggle" type="checkbox" class="peer sr-only" checked />
+                  <div class="h-10 w-16 rounded-full bg-white/10 ring-1 ring-white/10 relative transition peer-checked:bg-emerald-500/20 peer-checked:ring-emerald-400/30">
+                    <div class="absolute top-1/2 -translate-y-1/2 left-1 h-8 w-8 rounded-full bg-white/90 shadow-sm transition-transform peer-checked:translate-x-6"></div>
+                  </div>
+                  <div class="text-xs text-slate-300 pr-1.5">Invite</div>
+                </label>
+              </div>
+
+              <div class="mt-3 grid sm:grid-cols-3 gap-3">
+                <div class="sm:col-span-2">
+                  <label class="text-xs text-slate-400" for="expires">Expires in</label>
+                  <input id="expires" type="number" min="1" max="30" value="7"
+                    class="mt-2 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-400/50 focus:bg-black/30 transition"
+                    />
+                </div>
+                <div>
+                  <label class="text-xs text-slate-400" for="expiryUnit">Days</label>
+                  <select id="expiryUnit"
+                    class="mt-2 w-full rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2.5 outline-none focus:ring-2 focus:ring-indigo-400/50 focus:bg-black/30 transition">
+                    <option selected>days</option>
+                    <option>hours</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+          <div class="text-xs text-slate-400">
+            By creating a user, you acknowledge they’ll receive access according to the selected role.
+          </div>
+          <div class="flex gap-3">
+            <button type="button" id="clearBtn"
+              class="rounded-xl bg-white/5 hover:bg-white/10 ring-1 ring-white/10 px-4 py-2.5 text-sm text-slate-200 transition">
+              Clear
+            </button>
+            <button id="createBtn" type="submit" disabled
+              class="rounded-xl bg-gradient-to-r from-indigo-500 to-emerald-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-sm shadow-indigo-500/20 opacity-60 disabled:opacity-60 disabled:cursor-not-allowed transition">
+              Create user
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <div class="rounded-2xl bg-white/5 ring-1 ring-white/10 p-5 md:p-6">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold">Preview & actions</h2>
+          <div class="inline-flex items-center gap-2 rounded-xl bg-black/20 ring-1 ring-white/10 px-3 py-2">
+            <svg class="w-4 h-4 text-slate-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v14"></path>
+              <path d="M8 3h8"></path>
+              <path d="M12 12v3"></path>
+              <path d="M8 11h8"></path>
+            </svg>
+            <span class="text-sm text-slate-200">Safe mode</span>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-2xl bg-black/20 ring-1 ring-white/10 p-4">
+          <div class="flex items-start gap-3">
+            <div class="h-11 w-11 rounded-2xl bg-indigo-500/20 ring-1 ring-indigo-400/30 flex items-center justify-center overflow-hidden">
+              <div id="avatar" class="text-indigo-100 font-semibold tracking-tight">NU</div>
+            </div>
+            <div class="min-w-0">
+              <div class="text-sm text-slate-400">Account</div>
+              <div class="mt-1 text-base font-semibold text-slate-100 truncate" id="cardName">New user</div>
+              <div class="text-sm text-slate-400 truncate" id="cardEmail">—</div>
+            </div>
+          </div>
+
+          <div class="mt-4 grid sm:grid-cols-3 gap-3">
+            <div class="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+              <div class="text-xs text-slate-400">Role</div>
+              <div class="mt-1 text-sm font-semibold text-slate-100" id="cardRole">—</div>
+            </div>
+            <div class="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+              <div class="text-xs text-slate-400">Team</div>
+              <div class="mt-1 text-sm font-semibold text-slate-100" id="cardTeam">—</div>
+            </div>
+            <div class="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+              <div class="text-xs text-slate-400">Provisioning</div>
+              <div class="mt-1 text-sm font-semibold text-slate-100" id="cardProvision">Invite link</div>
+            </div>
+          </div>
+
+          <div class="mt-4 flex items-center justify-between gap-3">
+            <div class="text-xs text-slate-400">
+              Tip: Press <kbd class="px-2 py-1 rounded-lg bg-white/5 ring-1 ring-white/10 text-slate-200">Ctrl</kbd> + <kbd class="px-2 py-1 rounded-lg bg-white/5 ring-1 ring-white/10 text-slate-200">Enter</kbd> to create.
+            </div>
+            <button type="button" id="testNotifBtn"
+              class="inline-flex items-center gap-2 rounded-xl bg-white/5 hover:bg-white/10 ring-1 ring-white/10 px-3 py-2 text-sm transition">
+              <svg class="w-4 h-4 text-amber-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              Test message
+            </button>
+          </div>
+        </div>
+
+        <div id="toastWrap" class="fixed bottom-6 right-6 z-50 pointer-events-none"></div>
+      </div>
+    </div>
+
+    <div class="mt-8 text-xs text-slate-500 flex items-center gap-2">
+      <span class="inline-flex items-center justify-center h-5 w-5 rounded-lg bg-white/5 ring-1 ring-white/10">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path>
+        </svg>
+      </span>
+      This page simulates creation locally (no network calls).
+    </div>
+  </div>
+
+  <script>
+    const $ = (s) => document.querySelector(s);
+    const form = $("#addUserForm");
+
+    const name = $("#name"), email = $("#email"), role = $("#role"), team = $("#team");
+    const inviteToggle = $("#inviteToggle"), expires = $("#expires"), expiryUnit = $("#expiryUnit");
+    const createBtn = $("#createBtn"), clearBtn = $("#clearBtn"), randomizeBtn = $("#randomizeBtn");
+    const pulseDot = $("#pulseDot");
+
+    const previewName = $("#previewName"), previewEmail = $("#previewEmail");
+    const cardName = $("#cardName"), cardEmail = $("#cardEmail");
+    const cardRole = $("#cardRole"), cardTeam = $("#cardTeam"), cardProvision = $("#cardProvision");
+    const avatar = $("#avatar");
+
+    const progressBar = $("#progressBar"), progressLabel = $("#progressLabel");
+    const statusPill = $("#statusPill");
+
+    const nameErr = $("#nameErr"), emailErr = $("#emailErr"), roleErr = $("#roleErr");
+    const checks = $("#checks").children;
+
+    const setDot = (i, ok) => {
+      const el = checks[i].querySelector("span");
+      el.className = "h-2 w-2 rounded-full " + (ok ? "bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,.6)]" : "bg-white/15 ring-1 ring-white/20");
+    };
+
+    const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+    const compute = () => {
+      const n = name.value.trim();
+      const e = email.value.trim();
+      const r = role.value;
+      const okName = n.length >= 2;
+      const okEmail = isValidEmail(e);
+      const okRole = !!r;
+
+      nameErr.classList.toggle("hidden", okName);
+      emailErr.classList.toggle("hidden", okEmail);
+      roleErr.classList.toggle("hidden", okRole);
+
+      setDot(0, okName); setDot(1, okEmail); setDot(2, okRole);
+
+      const score = (okName + okEmail + okRole) / 3;
+      const pct = Math.round(score * 100);
+      progressBar.style.width = pct + "%";
+      progressLabel.textContent = pct + "%";
+
+      const ready = okName && okEmail && okRole;
+      createBtn.disabled = !ready;
+      createBtn.classList.toggle("opacity-60", !ready);
+
+      statusPill.textContent = ready ? "Ready" : (pct > 0 ? "In progress" : "Draft");
+      statusPill.className = "px-3 py-1 rounded-full text-xs font-medium ring-1 " + (ready
+        ? "bg-emerald-500/15 text-emerald-200 ring-emerald-400/25"
+        : (pct > 0 ? "bg-indigo-500/15 text-indigo-200 ring-indigo-400/25" : "bg-amber-500/15 text-amber-200 ring-amber-400/25")
+      );
+
+      const initials = (n.split(/\s+/).filter(Boolean).slice(0,2).map(x => x[0]).join("") || "NU").toUpperCase();
+      avatar.textContent = initials;
+
+      const pName = n || "New user";
+      previewName.textContent = pName;
+      cardName.textContent = pName;
+
+      const pEmail = e || "—";
+      previewEmail.textContent = pEmail === "—" ? "—" : pEmail;
+      cardEmail.textContent = pEmail;
+
+      cardRole.textContent = okRole ? r : "—";
+      cardTeam.textContent = team.value.trim() ? team.value.trim() : "—";
+
+      const inv = inviteToggle.checked;
+      const exp = (expires.value || "7") + " " + (expiryUnit.value || "days");
+      cardProvision.textContent = inv ? "Invite link • " + exp : "Credentials set by admin";
+      pulseDot.style.transform = ready ? "scale(1.15)" : "scale(1)";
+      pulseDot.style.filter = ready ? "drop-shadow(0 0 18px rgba(52,211,153,.8))" : "drop-shadow(0 0 14px rgba(129,140,248,.7))";
+    };
+
+    const toast = (title, detail, variant="ok") => {
+      const wrap = $("#toastWrap");
+      const colors = variant === "ok"
+        ? "from-emerald-500/25 to-emerald-400/10 ring-emerald-400/25"
+        : (variant === "warn"
+        ? "from-amber-500/25 to-amber-400/10 ring-amber-400/25"
+        : "from-indigo-500/25 to-indigo-400/10 ring-indigo-400/25");
+
+      const el = document.createElement("div");
+      el.className = "pointer-events-auto mb-3 w-[340px] max-w-[92vw] rounded-2xl bg-gradient-to-br " + colors + " ring-1 p-4 shadow-lg shadow-black/40 transform transition";
+      el.innerHTML = `
+        <div class="flex items-start gap-3">
+          <div class="h-10 w-10 rounded-xl bg-white/10 ring-1 ring-white/10 flex items-center justify-center">
+            <svg class="w-5 h-5 ${variant==="ok"?"text-emerald-200":(variant==="warn"?"text-amber-200":"text-indigo-200")}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              ${variant==="ok"
+                ? "<path d='M20 6 9 17l-5-5'/>"
+                : (variant==="warn"
+                  ? "<path d='M12 9v4'/><path d='M12 17h.01'/><path d='M10 3h4l7 18H3l7-18Z'/>"
+                  : "<path d='M21 12a9 9 0 1 1-18 0a9 9 0 0 1 18 0Z'/><path d='M12 7v5l3 3'/>"
+                )
+              }
+            </svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-semibold text-slate-50 truncate">${title}</div>
+            <div class="text-xs text-slate-200/80 mt-1 truncate">${detail || ""}</div>
+          </div>
+          <button class="shrink-0 text-slate-300 hover:text-slate-50 transition" aria-label="Dismiss">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6 6 18"/><path d="M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      `;
+      wrap.appendChild(el);
+      el.classList.add("translate-y-2", "opacity-0");
+      requestAnimationFrame(() => el.classList.remove("translate-y-2","opacity-0"));
+      const close = () => {
+        el.classList.add("opacity-0","translate-y-2");
+        setTimeout(()=>el.remove(), 220);
+      };
+      el.querySelector("button").addEventListener("click", close);
+      setTimeout(close, 2600);
+    };
+
+    const smartNames = [
+      ["Ava Thompson","ava.thompson@company.com"],
+      ["Noah Patel","noah.patel@company.com"],
+      ["Mia Chen","mia.chen@company.com"],
+      ["Ethan Rodriguez","ethan.rodriguez@company.com"],
+      ["Sophia Kim","sophia.kim@company.com"],
+      ["Liam Johnson","liam.johnson@company.com"]
+    ];
+    const roles = ["Admin","Manager","Support","Viewer"];
+    const teams = ["Platform","Payments","Operations","Design Systems","Customer Success","Security"];
+
+    randomizeBtn.addEventListener("click", () => {
+      const [n,e] = smartNames[Math.floor(Math.random()*smartNames.length)];
+      const r = roles[Math.floor(Math.random()*roles.length)];
+      const t = teams[Math.floor(Math.random()*teams.length)];
+      name.value = n;
+      email.value = e;
+      role.value = r;
+      team.value = t;
+      expires.value = String([3,5,7,10,14][Math.floor(Math.random()*5)]);
+      inviteToggle.checked = true;
+      compute();
+      toast("Smart fill applied", "Preview updated. Ready when you are.", "ok");
+      name.focus();
+    });
+
+    clearBtn.addEventListener("click", () => {
+      form.reset();
+      // keep invites toggle checked default
+      inviteToggle.checked = true;
+      expires.value = 7;
+      expiryUnit.value = "days";
+      compute();
+      toast("Cleared", "Form reset to draft.", "warn");
+      name.focus();
+    });
+
+    const createPayload = () => ({
+      name: name.value.trim(),
+      email: email.value.trim(),
+      role: role.value,
+      team: team.value.trim() || null,
+      provisioning: inviteToggle.checked
+        ? { type: "invite", expiresIn: Number(expires.value || 7), unit: expiryUnit.value }
+        : { type: "admin_set_password" }
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const n = name.value.trim();
+      const eMail = email.value.trim();
+      const r = role.value;
+
+      if (!(n.length >= 2 && isValidEmail(eMail) && r)) {
+        compute();
+        toast("Fix required fields", "Check name, email, and role.", "warn");
+        return;
+      }
+
+      const payload = createPayload();
+      // local simulation
+      sessionStorage.setItem("lastCreatedUser", JSON.stringify(payload));
+      toast("User created", `${payload.name} • ${payload.email}`, "ok");
+      statusPill.textContent = "Created";
+      statusPill.className = "px-3 py-1 rounded-full text-xs font-medium ring-1 bg-emerald-500/15 text-emerald-200 ring-emerald-400/25";
+      pulseDot.style.transform = "scale(1.2)";
+      pulseDot.style.filter = "drop-shadow(0 0 22px rgba(52,211,153,.85))";
+      createBtn.disabled = false;
+    });
+
+    document.addEventListener("keydown", (ev) => {
+      const isCtrlEnter = (ev.ctrlKey || ev.metaKey) && ev.key === "Enter";
+      if (!isCtrlEnter) return;
+      ev.preventDefault();
+      if (!createBtn.disabled) form.requestSubmit();
+    });
+
+    $("#testNotifBtn").addEventListener("click", () => {
+      const n = name.value.trim() || "there";
+      toast("Message queued", `Invite/notification preview for ${n}.`, "info");
+    });
+
+    ["input","change"].forEach(evt => {
+      name.addEventListener(evt, compute);
+      email.addEventListener(evt, compute);
+      role.addEventListener(evt, compute);
+      team.addEventListener(evt, compute);
+      inviteToggle.addEventListener(evt, compute);
+      expires.addEventListener(evt, compute);
+      expiryUnit.addEventListener(evt, compute);
+    });
+
+    compute();
+  </script>
+</body>
+</html>
