@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quotes</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+  <div class="max-w-5xl mx-auto p-4 sm:p-6">
+    <div class="flex items-end justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold">Quotes</h1>
+        <p class="text-zinc-400 text-sm">Add price too.</p>
+      </div>
+    </div>
+
+    <div class="mt-5 grid md:grid-cols-2 gap-4">
+      <form id="addForm" class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm text-zinc-300 mb-1">Quote</label>
+            <textarea name="quote" required rows="3" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Type a quote..."></textarea>
+          </div>
+          <div class="grid sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-sm text-zinc-300 mb-1">Author</label>
+              <input name="author" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Optional">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-sm text-zinc-300 mb-1">Source</label>
+              <input name="source" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Optional">
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-sm text-zinc-300 mb-1">Tags</label>
+              <input name="tags" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Comma separated">
+            </div>
+            <div>
+              <label class="block text-sm text-zinc-300 mb-1">Price</label>
+              <input name="price" type="number" step="0.01" min="0" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Optional">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm text-zinc-300 mb-1">Due date</label>
+            <input name="due_date" type="date" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <button class="w-full mt-1 bg-indigo-600 hover:bg-indigo-500 rounded-lg py-2.5 font-medium">Add</button>
+        </div>
+      </form>
+
+      <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <h2 class="font-semibold">List</h2>
+          <div class="flex items-center gap-2">
+            <input id="q" class="bg-zinc-950 border border-zinc-800 rounded-lg p-2 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Search" />
+            <button id="refresh" class="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700">↻</button>
+          </div>
+        </div>
+        <div id="list" class="space-y-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <template id="rowTpl">
+    <div class="group bg-zinc-950 border border-zinc-800 rounded-xl p-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="text-sm text-zinc-400 flex items-center gap-2">
+            <span class="badge bg-zinc-800 text-zinc-200 px-2 py-0.5 rounded-full" data-role="id"></span>
+            <span class="text-zinc-500" data-role="meta"></span>
+          </div>
+          <div class="mt-2 text-zinc-100 text-sm leading-relaxed break-words" data-role="quote"></div>
+          <div class="mt-2 text-xs text-zinc-400 flex flex-wrap gap-x-3 gap-y-1" data-role="sub"></div>
+        </div>
+        <button class="delete px-2 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm" data-role="del">Delete</button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const apiSchema = async()=>fetch('/api/db/schema').then(r=>r.json());
+    const exec = async (sql, params=[])=>fetch('/api/db/execute',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({sql,params})
+    }).then(r=>r.json());
+
+    const hasPrice = async()=> {
+      try{
+        const s = await apiSchema();
+        const cols = (s?.tables?.quotes?.columns) || (s?.tables?.['quotes']?.columns);
+        if(!cols) return true;
+        return Object.prototype.hasOwnProperty.call(cols,'price') || Object.prototype.hasOwnProperty.call(cols, 'PRICE');
+      }catch{ return true; }
+    };
+
+    const fmtMoney = (n)=>{
+      if(n===null||n===undefined||n==='') return '';
+      const x = Number(n);
+      if(!isFinite(x)) return '';
+      return x.toLocaleString(undefined,{style:'currency',currency:'USD'});
+    };
+
+    let priceColReady = null;
+    const load = async()=>{
+      if(priceColReady===null) priceColReady = await hasPrice();
+      const q = document.getElementById('q').value.trim();
+      const where = q ? 'WHERE quotes.quote LIKE ? OR COALESCE(quotes.author,\"\") LIKE ? OR COALESCE(quotes.source,\"\") LIKE ? OR COALESCE(quotes.tags,\"\") LIKE ?' : '';
+      const params = q ? [`%${q}%`,`%${q}%`,`%${q}%`,`%${q}%`] : [];
+      const sql = `
+        SELECT quotes.id, quotes.quote, quotes.author, quotes.source, quotes.tags, quotes.created_at, quote_due_dates.due_date
+        ${priceColReady ? ', quotes.price' : ', NULL as price'}
+        FROM quotes
+        LEFT JOIN quote_due_dates ON quote_due_dates.quote_id = quotes.id
+        ${where}
+        ORDER BY quotes.created_at DESC
+        LIMIT 200
+      `;
+      const res = await exec(sql, params);
+      const list = document.getElementById('list');
+      list.innerHTML='';
+      const rows = res?.rows || res;
+      if(!rows || rows.length===0){
+        list.innerHTML = `<div class="text-zinc-500 text-sm p-2">No results.</div>`;
+        return;
+      }
+      const tpl = document.getElementById('rowTpl');
+      for(const r of rows){
+        const node = tpl.content.cloneNode(true);
+        const el = (sel)=>node.querySelector(`[data-role="${sel}"]`);
+        el('id').textContent = `#${r.id}`;
+        el('meta').textContent = r.due_date ? `Due ${r.due_date}` : 'No due date';
+        el('quote').textContent = r.quote;
+        const tags = (r.tags||'').trim();
+        el('sub').innerHTML = `
+          ${r.author ? `<span>— ${escapeHtml(r.author)}</span>` : ``}
+          ${r.source ? `<span>${escapeHtml(r.source)}</span>` : ``}
+          ${tags ? `<span class="text-indigo-300">Tags: ${escapeHtml(tags)}</span>` : ``}
+          ${priceColReady ? (r.price!==null && r.price!==undefined && r.price!=='' ? `<span class="text-emerald-300">Price: ${escapeHtml(fmtMoney(r.price))}</span>` : '') : ''}
+        `;
+        node.querySelector('[data-role="del"]').addEventListener('click', async ()=>{
+          if(!confirm('Delete this quote?')) return;
+          await exec('DELETE FROM quotes WHERE id=?',[r.id]);
+          await load();
+        });
+        list.appendChild(node);
+      }
+    };
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    document.getElementById('addForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(e.currentTarget);
+      const quote = (fd.get('quote')||'').toString().trim();
+      const author = (fd.get('author')||'').toString().trim() || null;
+      const source = (fd.get('source')||'').toString().trim() || null;
+      const tags = (fd.get('tags')||'').toString().trim() || null;
+      const due_date = (fd.get('due_date')||'').toString().trim() || null;
+      const priceRaw = (fd.get('price')||'').toString().trim();
+      const price = priceRaw==='' ? null : Number(priceRaw);
+
+      const priceOk = await hasPrice();
+      if(priceOk){
+        const res = await exec(
+          'INSERT INTO quotes(quote,author,source,tags,price) VALUES(?,?,?,?,?)',
+          [quote, author, source, tags, price]
+        );
+        const id = res?.lastID;
+        if(due_date) await exec('INSERT OR REPLACE INTO quote_due_dates(quote_id,due_date) VALUES(?,?)',[id,due_date]);
+      }else{
+        const res = await exec(
+          'INSERT INTO quotes(quote,author,source,tags) VALUES(?,?,?,?)',
+          [quote, author, source, tags]
+        );
+        const id = res?.lastID;
+        if(due_date) await exec('INSERT OR REPLACE INTO quote_due_dates(quote_id,due_date) VALUES(?,?)',[id,due_date]);
+      }
+      e.currentTarget.reset();
+      await load();
+    });
+
+    document.getElementById('refresh').addEventListener('click', load);
+    document.getElementById('q').addEventListener('input', ()=>load());
+    load();
+  </script>
+</body>
+</html>
