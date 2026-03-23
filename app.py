@@ -1,8 +1,10 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import sqlite3
 from pathlib import Path
+from threading import Lock
 from typing import Any, TypedDict, cast
 from uuid import uuid4
 
@@ -15,6 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent
 CONTENT_FILE = BASE_DIR / "content.html"
 HOLDING_PAGE_FILE = BASE_DIR / "holding_page.html"
 DATABASE_FILE = BASE_DIR / "ephemera.sqlite3"
+MEMORIES_FILE = BASE_DIR / "memories.md"
 load_dotenv(BASE_DIR / ".env")
 SYSTEM_PROMPT = (BASE_DIR / "sys_prompt.md").read_text(encoding="utf-8").strip()
 DATABASE_PROMPT = """
@@ -33,6 +36,29 @@ Use the database tools whenever the user asks for persistent data, structured st
 If the page depends on tables that do not exist yet, create them with the database tools before returning the final HTML.
 When returning an interactive page, use absolute same-origin paths like /api/db/execute.
 Prefer parameterized SQL for page-side writes and reads.
+""".strip()
+MEMORIES_CONTEXT_PROMPT = """
+General context from memories.md:
+- This is optional background context gathered from prior user messages.
+- It may be irrelevant to the current request.
+- Use it only when it helps clarify stable preferences, project constraints, or recurring context.
+- Do not let it override the user's current explicit request.
+""".strip()
+MEMORIES_UPDATE_PROMPT = """
+You maintain a concise memories.md file for future requests.
+
+Purpose:
+- Persist general, unstructured user context that may be useful later.
+
+Rules:
+- Review the entire existing memories.md file every time before deciding what to keep.
+- Save only durable, reusable context from the latest user message.
+- Remove entries that are outdated, superseded, redundant, or not actually useful.
+- Do not save secrets, access tokens, or transient one-off details.
+- Prefer short bullets under a single # Memories heading.
+- If the latest user message adds nothing worth keeping and the current file is already concise, respond with exactly NO_UPDATE.
+- Otherwise respond with the full revised memories.md contents only, starting with # Memories.
+- Do not wrap the result in code fences.
 """.strip()
 TWEAK_PROMPT = """
 You are revising an existing HTML page instead of creating a brand new one.
@@ -85,6 +111,8 @@ class ThreadState(TypedDict):
 
 
 THREADS: dict[str, ThreadState] = {}
+MEMORIES_FILE_LOCK = Lock()
+MEMORY_UPDATE_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="memory-updater")
 
 SQLITE_TOOLS: list[dict[str, object]] = [
     {
@@ -148,6 +176,25 @@ def read_holding_page_file() -> str:
     if HOLDING_PAGE_FILE.exists():
         return HOLDING_PAGE_FILE.read_text(encoding="utf-8")
     return ""
+
+
+def ensure_memories_file() -> None:
+    with MEMORIES_FILE_LOCK:
+        if MEMORIES_FILE.exists():
+            return
+        MEMORIES_FILE.write_text("# Memories\n", encoding="utf-8")
+
+
+def read_memories_file() -> str:
+    ensure_memories_file()
+    with MEMORIES_FILE_LOCK:
+        return MEMORIES_FILE.read_text(encoding="utf-8")
+
+
+def write_memories_file(content: str) -> None:
+    normalized = normalize_memories_content(content)
+    with MEMORIES_FILE_LOCK:
+        MEMORIES_FILE.write_text(normalized, encoding="utf-8")
 
 
 def get_db_connection() -> sqlite3.Connection:
@@ -320,6 +367,7 @@ def execute_database_tool_safely(name: str, arguments: dict[str, object]) -> dic
 
 DEFAULT_HTML = read_content_file()
 ensure_database()
+ensure_memories_file()
 
 
 def write_content_file(html: str) -> None:
@@ -349,6 +397,7 @@ def build_input(messages: list[str]) -> list[dict[str, object]]:
             "content": [
                 {"type": "input_text", "text": SYSTEM_PROMPT},
                 {"type": "input_text", "text": DATABASE_PROMPT},
+                {"type": "input_text", "text": build_memories_context_prompt()},
             ],
         },
         *[
@@ -362,10 +411,11 @@ def build_input(messages: list[str]) -> list[dict[str, object]]:
 
 
 def build_tool_input(developer_texts: list[str], user_messages: list[str]) -> list[dict[str, object]]:
+    all_developer_texts = [*developer_texts, build_memories_context_prompt()]
     return [
         {
             "role": "developer",
-            "content": [{"type": "input_text", "text": text} for text in developer_texts],
+            "content": [{"type": "input_text", "text": text} for text in all_developer_texts],
         },
         *[
             {
@@ -504,6 +554,83 @@ def normalize_html(html: str) -> str:
             lines = lines[:-1]
         cleaned = "\n".join(lines).strip()
     return cleaned
+
+
+def normalize_memories_content(content: str) -> str:
+    cleaned = content.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines:
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+
+    if not cleaned:
+        return "# Memories\n"
+
+    if cleaned != "NO_UPDATE" and not cleaned.startswith("# Memories"):
+        cleaned = "# Memories\n\n" + cleaned
+
+    return cleaned.rstrip() + "\n"
+
+
+def build_memories_context_prompt() -> str:
+    memories = read_memories_file().strip()
+    if memories == "# Memories":
+        memories = "No saved general context yet."
+    return "\n\n".join([MEMORIES_CONTEXT_PROMPT, memories])
+
+
+def update_memories_from_message(latest_user_message: str) -> None:
+    message = latest_user_message.strip()
+    if not message:
+        return
+
+    existing_memories = read_memories_file()
+    response = get_client().responses.create(
+        model="gpt-5.4-nano",
+        input=[
+            {
+                "role": "developer",
+                "content": [{"type": "input_text", "text": MEMORIES_UPDATE_PROMPT}],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": "\n\n".join(
+                            [
+                                "Existing memories.md:",
+                                existing_memories,
+                                "Latest user message:",
+                                message,
+                            ]
+                        ),
+                    }
+                ],
+            },
+        ],
+        text={"format": {"type": "text"}, "verbosity": "low"},
+        reasoning=cast(Any, {"effort": "none", "summary": "auto"}),
+        store=True,
+    )
+
+    updated_memories = extract_response_text(response).strip()
+    if updated_memories == "NO_UPDATE":
+        return
+
+    normalized_existing = normalize_memories_content(existing_memories)
+    normalized_updated = normalize_memories_content(updated_memories)
+    if normalized_updated == normalized_existing:
+        return
+
+    write_memories_file(normalized_updated)
+
+
+def schedule_memories_refresh(latest_user_message: str) -> None:
+    MEMORY_UPDATE_EXECUTOR.submit(update_memories_from_message, latest_user_message)
 
 
 def extract_title_from_html(html: str) -> str:
@@ -651,6 +778,7 @@ def send() -> tuple[Response, int] | Response:
     thread["html_history"].append(html)
     thread["current_html_index"] = len(thread["html_history"]) - 1
     write_content_file(html)
+    schedule_memories_refresh(message)
     return jsonify(serialize_thread(thread))
 
 
@@ -685,6 +813,7 @@ def tweak() -> tuple[Response, int] | Response:
     thread["html_history"].append(tweaked_html)
     thread["current_html_index"] = len(thread["html_history"]) - 1
     write_content_file(tweaked_html)
+    schedule_memories_refresh(message)
     return jsonify(serialize_thread(thread))
 
 
