@@ -15,4 +15,4 @@ When the task needs persistent data, CRUD flows, tables, lists, forms, dashboard
 
 For simple visual tasks that do not need persistence, return static HTML.
 
-Keep the code as short as possible. Do not include explanatory comments in the HTML. Always use dark mode style.
+Keep the code as short as possible. Do not include explanatory comments in the HTML. Always use dark mode style and make pages full width.

@@ -1,123 +1,60 @@
 <!doctype html>
 <html lang="en" class="dark">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Memory</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <title>Quotes</title>
 </head>
-<body class="bg-zinc-950 text-zinc-100 min-h-screen">
-  <div class="max-w-6xl mx-auto p-4 md:p-6 space-y-4">
-    <div class="flex items-end justify-between gap-4">
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="w-full px-4 md:px-8 py-4 md:py-8">
+    <div class="flex items-center justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-bold">Quotes</h1>
-        <p class="text-zinc-400 text-sm">Add, edit, and delete quotes linked to customers.</p>
+        <h1 class="text-2xl font-bold">Everything in memory</h1>
+        <p class="text-slate-400 text-sm">Current SQLite tables and contents</p>
       </div>
-      <button id="refresh" class="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700">Refresh</button>
+      <button id="refresh" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700">Refresh</button>
     </div>
-
-    <div class="grid md:grid-cols-2 gap-4">
-      <form id="quoteForm" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
-        <input type="hidden" name="id" />
-        <div class="grid gap-3">
-          <input name="quote" required placeholder="Quote" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
-          <div class="grid grid-cols-2 gap-3">
-            <input name="author" placeholder="Author" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
-            <input name="price" type="number" step="0.01" placeholder="Price" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
-          </div>
-          <input name="source" placeholder="Source" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
-          <input name="tags" placeholder="Tags comma-separated" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none" />
-          <select name="customer_id" id="customerSelect" class="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 outline-none"></select>
-        </div>
-        <div class="flex gap-2">
-          <button id="saveBtn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500">Add Quote</button>
-          <button id="cancelEdit" type="button" class="hidden px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700">Cancel</button>
-        </div>
-        <div id="msg" class="text-sm text-zinc-400"></div>
-      </form>
-
-      <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-semibold">Customers</h2>
-        </div>
-        <div id="customers" class="space-y-2 text-sm"></div>
-      </div>
-    </div>
-
-    <div class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="font-semibold">Quote list</h2>
-        <div id="count" class="text-sm text-zinc-400"></div>
-      </div>
-      <div id="quotes" class="grid gap-3"></div>
-    </div>
+    <div id="out" class="space-y-4"></div>
   </div>
 
-<script>
-const q=(s,p=[])=>fetch('/api/db/execute',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sql:s,params:p})}).then(r=>r.json())
-const el=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m]))
-let customers=[]
-async function load(){
-  const [cq,cc]=await Promise.all([
-    q(`SELECT q.id,q.quote,q.author,q.source,q.tags,q.price,q.created_at, group_concat(c.name, ', ') customers
-       FROM quotes q
-       LEFT JOIN quote_customers qc ON qc.quote_id=q.id
-       LEFT JOIN customers c ON c.id=qc.customer_id
-       GROUP BY q.id ORDER BY q.created_at DESC`),
-    q(`SELECT id,name,company FROM customers ORDER BY name`)
-  ])
-  const rows=cq.rows||[]; customers=cc.rows||[]
-  el('#count').textContent=`${rows.length} quotes`
-  el('#quotes').innerHTML=rows.map(r=>`<div class="rounded-xl border border-zinc-800 bg-zinc-950 p-4"><div class="flex justify-between gap-3"><div><div class="font-medium">${esc(r.quote)}</div><div class="text-sm text-zinc-400">${esc([r.author,r.source].filter(Boolean).join(' · '))}</div></div><div class="flex flex-col items-end gap-2"><div class="font-semibold">${r.price!=null?'$'+Number(r.price).toFixed(2):''}</div><div class="text-xs text-zinc-500">${esc(r.created_at)}</div></div></div><div class="mt-2 text-sm text-zinc-400">${esc(r.tags||'')}</div><div class="mt-2 text-sm text-zinc-300">${esc(r.customers||'—')}</div><div class="mt-3 flex gap-2"><button data-edit='${esc(JSON.stringify(r))}' class="edit px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm">Edit</button><button data-del="${r.id}" class="del px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-sm">Delete</button></div></div>`).join('')||'<div class="text-zinc-500">No quotes yet.</div>'
-  el('#customers').innerHTML=customers.map(c=>`<div class="flex items-center justify-between rounded-lg border border-zinc-800 px-3 py-2"><div><div>${esc(c.name)}</div><div class="text-xs text-zinc-500">${esc(c.company||'')}</div></div><div class="text-zinc-500">#${c.id}</div></div>`).join('')||'<div class="text-zinc-500">No customers found.</div>'
-  el('#customerSelect').innerHTML='<option value="">No customer link</option>'+customers.map(c=>`<option value="${c.id}">${esc(c.name)}${c.company?' — '+esc(c.company):''}</option>`).join('')
-  document.querySelectorAll('.edit').forEach(b=>b.onclick=()=>fillEdit(JSON.parse(b.dataset.edit)))
-  document.querySelectorAll('.del').forEach(b=>b.onclick=()=>removeQuote(b.dataset.del))
-}
-function fillEdit(r){
-  const f=el('#quoteForm')
-  f.id.value=r.id||''
-  f.quote.value=r.quote||''
-  f.author.value=r.author||''
-  f.price.value=r.price??''
-  f.source.value=r.source||''
-  f.tags.value=r.tags||''
-  el('#saveBtn').textContent='Save Quote'
-  el('#cancelEdit').classList.remove('hidden')
-  el('#msg').textContent=`Editing #${r.id}`
-}
-function resetForm(){
-  const f=el('#quoteForm')
-  f.reset(); f.id.value=''
-  el('#saveBtn').textContent='Add Quote'
-  el('#cancelEdit').classList.add('hidden')
-  el('#msg').textContent=''
-}
-async function removeQuote(id){
-  if(!confirm('Delete this quote?')) return
-  await q('DELETE FROM quote_customers WHERE quote_id=?',[id])
-  await q('DELETE FROM quotes WHERE id=?',[id])
-  resetForm(); load()
-}
-el('#quoteForm').onsubmit=async e=>{
-  e.preventDefault()
-  const f=new FormData(e.target), id=f.get('id')
-  if(id){
-    await q('UPDATE quotes SET quote=?,author=?,source=?,tags=?,price=? WHERE id=?',[f.get('quote'),f.get('author')||null,f.get('source')||null,f.get('tags')||null,f.get('price')||null,id])
-    await q('DELETE FROM quote_customers WHERE quote_id=?',[id])
-    if(f.get('customer_id')) await q('INSERT INTO quote_customers(quote_id,customer_id) VALUES(?,?)',[id,f.get('customer_id')])
-    el('#msg').textContent='Updated.'
-  }else{
-    const res=await q('INSERT INTO quotes(quote,author,source,tags,price) VALUES(?,?,?,?,?)',[f.get('quote'),f.get('author')||null,f.get('source')||null,f.get('tags')||null,f.get('price')||null])
-    const cid=f.get('customer_id')
-    if(cid) await q('INSERT INTO quote_customers(quote_id,customer_id) VALUES(?,?)',[res.last_insert_rowid,cid])
-    el('#msg').textContent='Saved.'
-  }
-  resetForm(); load()
-}
-el('#cancelEdit').onclick=resetForm
-el('#refresh').onclick=load
-load()
-</script>
+  <script>
+    const out = document.getElementById('out');
+    const refresh = document.getElementById('refresh');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m]));
+    async function api(sql, params=[]) {
+      const r = await fetch('/api/db/execute', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sql, params})});
+      return r.json();
+    }
+    async function load() {
+      out.innerHTML = '<div class="text-slate-400">Loading...</div>';
+      const schema = await (await fetch('/api/db/schema')).json();
+      const tables = schema.objects.filter(o => o.type === 'table').map(o => o.name).filter(n => !n.startsWith('sqlite_'));
+      const parts = await Promise.all(tables.map(async t => {
+        const d = await api(`SELECT * FROM "${t}" ORDER BY rowid DESC`);
+        return {t, cols: d.columns, rows: d.rows};
+      }));
+      out.innerHTML = parts.map(({t, cols, rows}) => `
+        <section class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
+          <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+            <h2 class="font-semibold">${esc(t)}</h2>
+            <span class="text-xs text-slate-400">${rows.length} rows</span>
+          </div>
+          <div class="overflow-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-950/60 text-slate-400">
+                <tr>${cols.map(c=>`<th class="text-left font-medium p-3 whitespace-nowrap">${esc(c)}</th>`).join('')}</tr>
+              </thead>
+              <tbody>
+                ${rows.map(r=>`<tr class="border-t border-slate-800/70 hover:bg-slate-800/40">${cols.map(c=>`<td class="p-3 align-top whitespace-pre-wrap">${esc(r[c])}</td>`).join('')}</tr>`).join('') || `<tr><td class="p-4 text-slate-500" colspan="${cols.length}">Empty</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      `).join('');
+    }
+    refresh.onclick = load;
+    load();
+  </script>
 </body>
 </html>
