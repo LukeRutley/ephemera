@@ -63,6 +63,8 @@ Required workflow:
 - If a migration step fails, inspect the resulting state and continue from there instead of stopping.
 - Handle partially completed migrations safely, including cleanup or reuse of temporary tables left behind by earlier failed attempts.
 - Re-inspect the schema after any changes.
+- Review the saved pages, if one newer saved page clearly overides an old version of that page (or similar), remove the old page.
+- If any schema changes have been made, review and update any saved pages html that used the old schema to ensure those pages continue to function.
 
 Return a concise plain-language summary covering:
 1. What changed.
