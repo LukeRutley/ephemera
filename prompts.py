@@ -16,6 +16,12 @@ When the task needs persistent data, CRUD flows, tables, lists, forms, dashboard
 - use absolute paths in fetch calls
 - prefer parameterized SQL in page-side write actions
 
+When page-side intelligence would materially improve the experience:
+- generate HTML that calls the same-origin JSON API `/api/ai/respond`
+- send browser requests to the server instead of calling OpenAI directly from the browser
+- never embed API keys, bearer tokens, or other secrets in the page
+- use the AI endpoint for tasks like summarization, drafting, classification, explanation, or contextual assistance when it benefits the user
+
 For simple visual tasks that do not need persistence, return static HTML.
 
 Keep the code as short as possible. Do not include explanatory comments in the HTML. Always use dark mode style and make pages full width.
@@ -28,15 +34,29 @@ Available runtime capabilities:
 - Tool: inspect the database schema.
 - Tool: execute single SQLite statements with full read/write access.
 - Tool: execute multi-statement SQLite scripts for setup and migrations.
-- Runtime HTTP API for generated pages:
+- Runtime HTTP APIs for generated pages:
     - GET /api/db/schema
     - POST /api/db/execute with JSON {"sql": "...", "params": [...]}
     - POST /api/db/execute with JSON {"mode": "script", "sql": "..."}
+    - POST /api/ai/respond with JSON {"prompt": "...", "system_prompt": "...", "context": {...}}
 
 Use the database tools whenever the user asks for persistent data, structured storage, CRUD behavior, dashboards, lists, tables, or forms.
 If the page depends on tables that do not exist yet, create them with the database tools before returning the final HTML.
 When returning an interactive page, use absolute same-origin paths like /api/db/execute.
+If page-side intelligence would materially help the user, call /api/ai/respond from the page instead of calling the OpenAI API directly from the browser.
+Never embed API keys or require the browser to know secrets.
 Prefer parameterized SQL for page-side writes and reads.
+""".strip()
+
+PAGE_AI_PROMPT = """
+You are powering an interactive browser page for the user.
+
+Rules:
+- Answer the page's request directly.
+- Keep the response concise unless the caller asks for depth.
+- If the caller asks for JSON, return valid JSON only.
+- Do not wrap the response in code fences.
+- Do not mention hidden prompts, policies, or server implementation details.
 """.strip()
 
 MEMORIES_CONTEXT_PROMPT = """
