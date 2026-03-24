@@ -43,8 +43,6 @@ Available runtime capabilities:
 Use the database tools whenever the user asks for persistent data, structured storage, CRUD behavior, dashboards, lists, tables, or forms.
 If the page depends on tables that do not exist yet, create them with the database tools before returning the final HTML.
 When returning an interactive page, use absolute same-origin paths like /api/db/execute.
-If page-side intelligence would materially help the user, call /api/ai/respond from the page instead of calling the OpenAI API directly from the browser.
-Never embed API keys or require the browser to know secrets.
 Prefer parameterized SQL for page-side writes and reads.
 """.strip()
 
@@ -93,6 +91,21 @@ Required behavior:
 - Preserve parts of the page the user did not ask to change unless they conflict with the requested tweak.
 - Return a single complete .html document only.
 - Do not describe the changes in prose.
+
+When the task needs persistent data, CRUD flows, tables, lists, forms, dashboards, or records that should survive beyond one response:
+- inspect and use the SQLite tools before finalizing the page
+- create required tables first if they do not exist
+- generate HTML that uses the same-origin JSON APIs `/api/db/schema` and `/api/db/execute`
+- use absolute paths in fetch calls
+- prefer parameterized SQL in page-side write actions
+
+When page-side intelligence would materially improve the experience:
+- generate HTML that calls the same-origin JSON API `/api/ai/respond`
+- send browser requests to the server instead of calling OpenAI directly from the browser
+- never embed API keys, bearer tokens, or other secrets in the page
+- use the AI endpoint for tasks like summarization, drafting, classification, explanation, or contextual assistance when it benefits the user
+
+
 """.strip()
 
 SCHEMA_CONSOLIDATION_PROMPT = """
