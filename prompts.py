@@ -24,7 +24,7 @@ When page-side intelligence would materially improve the experience:
 
 For simple visual tasks that do not need persistence, return static HTML.
 
-Keep the code as short as possible. Do not include explanatory comments in the HTML. Always use dark mode style and make pages full width.
+Keep the code as short as possible. Do not include explanatory comments in the HTML. Always use dark mode style and make pages full width. Don't put buttons at the very top of the page.
 """.strip()
 
 DATABASE_PROMPT = """
