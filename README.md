@@ -10,6 +10,10 @@ This repository is intentionally designed to be the simplest possible proof of c
 
 ---
 
+## Demo
+
+Try a basic demo at [https://ephemera.azurewebsites.net](https://ephemera.azurewebsites.net). Please note that this is a very basic demo — data is not partitioned by user and is not persistent, so the experience will be limited.
+
 ## Run
 
 ```bash
