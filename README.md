@@ -6,6 +6,8 @@ It treats structured data as a first-class advantage for software and persistenc
 
 The result is software that adapts to the user instead of asking the user to adapt to the software: from a simple one-off question, to a rich interactive workflow, to something that gradually becomes a fully custom replacement for traditional software.
 
+This repository is intentionally designed to be the simplest possible proof of concept for evolving, ephemeral software.
+
 ## Run
 
 ```bash
