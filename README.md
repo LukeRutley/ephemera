@@ -8,9 +8,28 @@ The result is software that adapts to the user instead of asking the user to ada
 
 This repository is intentionally designed to be the simplest possible proof of concept for evolving and ephemeral software.
 
+---
+
 ## Run
 
 ```bash
 pip install -r requirements.txt
 python app.py
+```
+
+## OpenAI Usage
+
+This project uses OpenAI models for inference.
+
+To run the application, you must set your OpenAI API key as an environment variable:
+
+### macOS / Linux
+```bash
+export OPENAI_API_KEY="your_api_key_here"
+```
+
+### Windows (PowerShell)
+
+```powershell
+setx OPENAI_API_KEY "your_api_key_here"
 ```
