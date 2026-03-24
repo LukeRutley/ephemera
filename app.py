@@ -5,10 +5,10 @@ import re
 import sqlite3
 from pathlib import Path
 from threading import Lock
-from typing import Any, TypedDict, cast
+from typing import Any, Generator, TypedDict, cast
 from uuid import uuid4
 
-from flask import Flask, Response, jsonify, render_template, request, session
+from flask import Flask, Response, jsonify, render_template, request, session, stream_with_context
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -95,6 +95,60 @@ SQLITE_TOOLS: list[dict[str, object]] = [
         },
     },
 ]
+
+VOID_HTML_TAGS = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+}
+
+RAW_TEXT_HTML_TAGS = {"script", "style", "textarea", "title"}
+
+BLOCK_LEVEL_HTML_TAGS = {
+    "address",
+    "article",
+    "aside",
+    "blockquote",
+    "dd",
+    "details",
+    "dialog",
+    "div",
+    "dl",
+    "dt",
+    "fieldset",
+    "figcaption",
+    "figure",
+    "footer",
+    "form",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "header",
+    "hr",
+    "li",
+    "main",
+    "nav",
+    "ol",
+    "p",
+    "pre",
+    "section",
+    "table",
+    "ul",
+}
 
 
 def read_runtime_content() -> str:
@@ -382,6 +436,115 @@ def extract_response_text(response: object) -> str:
     return "\n".join(chunks).strip()
 
 
+def find_tag_end(html: str, start_index: int) -> int | None:
+    quote_character: str | None = None
+    index = start_index + 1
+
+    while index < len(html):
+        character = html[index]
+        if quote_character:
+            if character == quote_character:
+                quote_character = None
+        elif character in {'"', "'"}:
+            quote_character = character
+        elif character == ">":
+            return index
+        index += 1
+
+    return None
+
+
+def update_open_tag_stack(stack: list[str], tag_name: str) -> None:
+    if tag_name not in stack:
+        return
+
+    last_match_index = len(stack) - 1 - stack[::-1].index(tag_name)
+    del stack[last_match_index:]
+
+
+def build_streaming_html_preview(html: str) -> tuple[str, int]:
+    if not html:
+        return "", 0
+
+    lower_html = html.lower()
+    stack: list[str] = []
+    last_boundary = 0
+    boundary_stack: list[str] = []
+    body_open = False
+    index = 0
+
+    while index < len(html):
+        if html.startswith("<!--", index):
+            comment_end = html.find("-->", index + 4)
+            if comment_end == -1:
+                break
+            index = comment_end + 3
+            continue
+
+        if html[index] != "<":
+            index += 1
+            continue
+
+        tag_end = find_tag_end(html, index)
+        if tag_end is None:
+            break
+
+        token = html[index : tag_end + 1]
+        tag_match = re.match(r"</?\s*([a-zA-Z][\w:-]*)", token)
+        if not tag_match:
+            index = tag_end + 1
+            continue
+
+        tag_name = tag_match.group(1).lower()
+        is_closing_tag = token.startswith("</")
+        is_self_closing = token.rstrip().endswith("/>") or tag_name in VOID_HTML_TAGS
+
+        if is_closing_tag:
+            update_open_tag_stack(stack, tag_name)
+            if body_open and tag_name in BLOCK_LEVEL_HTML_TAGS:
+                last_boundary = tag_end + 1
+                boundary_stack = list(stack)
+            if tag_name == "body":
+                body_open = False
+        else:
+            if not is_self_closing:
+                stack.append(tag_name)
+
+            if tag_name == "body":
+                body_open = True
+                last_boundary = tag_end + 1
+                boundary_stack = list(stack)
+
+            if tag_name in RAW_TEXT_HTML_TAGS and not is_self_closing:
+                closing_tag = f"</{tag_name}>"
+                closing_start = lower_html.find(closing_tag, tag_end + 1)
+                if closing_start == -1:
+                    break
+
+                raw_text_close_end = find_tag_end(html, closing_start)
+                if raw_text_close_end is None:
+                    break
+
+                update_open_tag_stack(stack, tag_name)
+                if body_open and tag_name in BLOCK_LEVEL_HTML_TAGS:
+                    last_boundary = raw_text_close_end + 1
+                    boundary_stack = list(stack)
+                index = raw_text_close_end + 1
+                continue
+
+            if body_open and is_self_closing and tag_name in BLOCK_LEVEL_HTML_TAGS:
+                last_boundary = tag_end + 1
+                boundary_stack = list(stack)
+
+        index = tag_end + 1
+
+    if last_boundary <= 0:
+        return "", 0
+
+    closing_tags = "".join(f"</{tag_name}>" for tag_name in reversed(boundary_stack))
+    return html[:last_boundary] + closing_tags, last_boundary
+
+
 def create_tool_response(
     developer_texts: list[str],
     user_messages: list[str],
@@ -412,6 +575,93 @@ def create_tool_response(
             request_payload["previous_response_id"] = previous_response_id
 
         response = client.responses.create(**request_payload)
+        function_calls = [
+            item
+            for item in (getattr(response, "output", []) or [])
+            if getattr(item, "type", "") == "function_call"
+        ]
+        if not function_calls:
+            return response
+
+        tool_outputs: list[dict[str, str]] = []
+        for call in function_calls:
+            raw_arguments = getattr(call, "arguments", "{}") or "{}"
+            call_name = str(getattr(call, "name", ""))
+            try:
+                parsed_arguments = json.loads(str(raw_arguments))
+                if not isinstance(parsed_arguments, dict):
+                    raise ValueError("Tool arguments must be a JSON object.")
+                result = execute_database_tool_safely(call_name, parsed_arguments)
+            except Exception as exc:
+                result = {
+                    "ok": False,
+                    "tool_name": call_name,
+                    "error_type": exc.__class__.__name__,
+                    "error": str(exc),
+                }
+
+            tool_outputs.append(
+                {
+                    "type": "function_call_output",
+                    "call_id": str(getattr(call, "call_id", "")),
+                    "output": json.dumps(result),
+                }
+            )
+
+        previous_response_id = str(getattr(response, "id", "") or "")
+        request_input = tool_outputs
+
+    raise RuntimeError(f"OpenAI tool-call limit exceeded after {max_turns} turns.")
+
+
+def iter_tool_response_events(
+    developer_texts: list[str],
+    user_messages: list[str],
+    *,
+    max_turns: int = 24,
+) -> Generator[dict[str, object], None, object]:
+    request_input: object = build_tool_input(developer_texts, user_messages)
+    previous_response_id: str | None = None
+    client = get_client()
+
+    for turn in range(max_turns):
+        request_payload = {
+            "model": "gpt-5.4-mini",
+            "input": cast(Any, request_input),
+            "text": {"format": {"type": "text"}, "verbosity": "low"},
+            "reasoning": cast(Any, {"effort": "none", "summary": "auto"}),
+            "tools": cast(Any, SQLITE_TOOLS),
+            "store": True,
+            "include": cast(
+                Any,
+                [
+                    "reasoning.encrypted_content",
+                    "web_search_call.action.sources",
+                ],
+            ),
+        }
+        if previous_response_id:
+            request_payload["previous_response_id"] = previous_response_id
+
+        if turn == 0:
+            yield {"type": "status", "message": "Generating your page…"}
+        else:
+            yield {"type": "status", "message": "Continuing the page build…"}
+
+        tool_status_sent = False
+        with client.responses.stream(**request_payload) as stream:
+            for event in stream:
+                event_type = str(getattr(event, "type", ""))
+                if event_type == "response.output_text.delta":
+                    delta = str(getattr(event, "delta", "") or "")
+                    if delta:
+                        yield {"type": "text_delta", "delta": delta}
+                elif event_type == "response.function_call_arguments.delta" and not tool_status_sent:
+                    tool_status_sent = True
+                    yield {"type": "status", "message": "Checking data before finishing the page…"}
+
+            response = stream.get_final_response()
+
         function_calls = [
             item
             for item in (getattr(response, "output", []) or [])
@@ -587,6 +837,18 @@ def current_html(thread: ThreadState) -> str:
     return str(html_history[current_index])
 
 
+def commit_generated_html(thread: ThreadState, messages: list[str], html: str, latest_user_message: str) -> None:
+    current_index = int(thread["current_html_index"])
+    if current_index < len(thread["html_history"]) - 1:
+        thread["html_history"] = thread["html_history"][: current_index + 1]
+
+    thread["messages"] = messages
+    thread["html_history"].append(html)
+    thread["current_html_index"] = len(thread["html_history"]) - 1
+    write_runtime_content(html)
+    schedule_memories_refresh(latest_user_message)
+
+
 def list_saved_pages() -> list[dict[str, object]]:
     with get_db_connection() as connection:
         rows = connection.execute(
@@ -688,6 +950,61 @@ def content() -> Response:
     return Response(current_html(get_thread()), mimetype="text/html")
 
 
+def stream_html_generation(
+    *,
+    thread: ThreadState,
+    messages: list[str],
+    latest_user_message: str,
+    response_events: Generator[dict[str, object], None, object],
+) -> Response:
+    def event_stream() -> Generator[str, None, None]:
+        accumulated_html = ""
+        last_boundary = 0
+        last_preview = ""
+
+        try:
+            while True:
+                try:
+                    event = next(response_events)
+                except StopIteration as stop:
+                    response = stop.value
+                    break
+
+                if event.get("type") == "status":
+                    yield json.dumps(event) + "\n"
+                    continue
+
+                if event.get("type") != "text_delta":
+                    continue
+
+                delta = str(event.get("delta", "") or "")
+                if not delta:
+                    continue
+
+                accumulated_html += delta
+                preview_html, boundary = build_streaming_html_preview(normalize_html(accumulated_html))
+                if boundary <= last_boundary or not preview_html or preview_html == last_preview:
+                    continue
+
+                last_boundary = boundary
+                last_preview = preview_html
+                yield json.dumps({"type": "html", "html": preview_html}) + "\n"
+
+            html = extract_html(response)
+            if not html:
+                yield json.dumps({"type": "error", "error": "OpenAI returned an empty response."}) + "\n"
+                return
+
+            commit_generated_html(thread, messages, html, latest_user_message)
+            if html != last_preview:
+                yield json.dumps({"type": "html", "html": html}) + "\n"
+            yield json.dumps({"type": "complete", "state": serialize_thread(thread)}) + "\n"
+        except Exception as exc:
+            yield json.dumps({"type": "error", "error": str(exc)}) + "\n"
+
+    return Response(stream_with_context(event_stream()), mimetype="application/x-ndjson")
+
+
 @app.post("/send")
 def send() -> tuple[Response, int] | Response:
     payload = request.get_json(silent=True) or {}
@@ -707,16 +1024,25 @@ def send() -> tuple[Response, int] | Response:
     if not html:
         return jsonify({"error": "OpenAI returned an empty response."}), 502
 
-    current_index = int(thread["current_html_index"])
-    if current_index < len(thread["html_history"]) - 1:
-        thread["html_history"] = thread["html_history"][: current_index + 1]
-
-    thread["messages"] = messages
-    thread["html_history"].append(html)
-    thread["current_html_index"] = len(thread["html_history"]) - 1
-    write_runtime_content(html)
-    schedule_memories_refresh(message)
+    commit_generated_html(thread, messages, html, message)
     return jsonify(serialize_thread(thread))
+
+
+@app.post("/send-stream")
+def send_stream() -> tuple[Response, int] | Response:
+    payload = request.get_json(silent=True) or {}
+    message = str(payload.get("message", "")).strip()
+    if not message:
+        return jsonify({"error": "Message is required."}), 400
+
+    thread = get_thread()
+    messages = [*thread["messages"], message]
+    return stream_html_generation(
+        thread=thread,
+        messages=messages,
+        latest_user_message=message,
+        response_events=iter_tool_response_events([SYSTEM_PROMPT, DATABASE_PROMPT], messages),
+    )
 
 
 @app.post("/tweak")
@@ -742,16 +1068,40 @@ def tweak() -> tuple[Response, int] | Response:
     if not tweaked_html:
         return jsonify({"error": "OpenAI returned an empty response."}), 502
 
-    current_index = int(thread["current_html_index"])
-    if current_index < len(thread["html_history"]) - 1:
-        thread["html_history"] = thread["html_history"][: current_index + 1]
-
-    thread["messages"] = messages
-    thread["html_history"].append(tweaked_html)
-    thread["current_html_index"] = len(thread["html_history"]) - 1
-    write_runtime_content(tweaked_html)
-    schedule_memories_refresh(message)
+    commit_generated_html(thread, messages, tweaked_html, message)
     return jsonify(serialize_thread(thread))
+
+
+@app.post("/tweak-stream")
+def tweak_stream() -> tuple[Response, int] | Response:
+    payload = request.get_json(silent=True) or {}
+    message = str(payload.get("message", "")).strip()
+    if not message:
+        return jsonify({"error": "Message is required."}), 400
+
+    thread = get_thread()
+    html = current_html(thread).strip()
+    if not html:
+        return jsonify({"error": "There is no current HTML page to tweak."}), 400
+
+    messages = [*thread["messages"], message]
+    tweak_input = "\n\n".join(
+        [
+            "Current HTML:\n```html",
+            html,
+            "```",
+            f"Requested changes:\n{message}",
+        ]
+    )
+    return stream_html_generation(
+        thread=thread,
+        messages=messages,
+        latest_user_message=message,
+        response_events=iter_tool_response_events(
+            [SYSTEM_PROMPT, DATABASE_PROMPT, TWEAK_PROMPT],
+            [*thread["messages"], tweak_input],
+        ),
+    )
 
 
 @app.post("/consolidate-schema")

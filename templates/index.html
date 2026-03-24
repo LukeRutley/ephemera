@@ -189,6 +189,41 @@
       }
     }
 
+    .loading-status {
+      min-height: 1.25rem;
+      font-size: 0.85rem;
+      color: var(--accent);
+      display: none;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .loading-status.is-visible {
+      display: inline-flex;
+    }
+
+    .loading-status::before {
+      content: "";
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 0 0.9rem rgba(125, 211, 252, 0.5);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 0.45;
+        transform: scale(0.82);
+      }
+
+      50% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
     .back-button-floating {
       position: fixed;
       top: 1.25rem;
@@ -496,6 +531,7 @@
           <button class="button button-danger" id="newTopicButton" type="button">New topic</button>
         </div>
       </div>
+      <div class="loading-status" id="loadingStatus" role="status" aria-live="polite"></div>
     </form>
   </div>
 
@@ -520,6 +556,7 @@
     const savedPagesSearch = document.getElementById("savedPagesSearch");
     const savedPagesList = document.getElementById("savedPagesList");
     const consolidateSchemaButton = document.getElementById("consolidateSchemaButton");
+    const loadingStatus = document.getElementById("loadingStatus");
 
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, (character) => ({
@@ -608,7 +645,13 @@
       nextButton.disabled = !state.can_go_forward;
     }
 
-    function setLoading(isLoading) {
+    function setLoadingMessage(message = "") {
+      const nextMessage = String(message || "").trim();
+      loadingStatus.textContent = nextMessage;
+      loadingStatus.classList.toggle("is-visible", Boolean(nextMessage));
+    }
+
+    function setLoading(isLoading, message = "") {
       sendButton.disabled = isLoading;
       tweakButton.disabled = isLoading;
       backButton.disabled = isLoading || !state.can_go_back;
@@ -621,6 +664,7 @@
       tweakButton.classList.toggle("is-loading", isLoading);
       sendLabel.textContent = isLoading ? "Sending" : "Send";
       tweakLabel.textContent = isLoading ? "Tweaking" : "Tweak";
+      setLoadingMessage(isLoading ? (message || "Still generating the page…") : "");
     }
 
     function setButtonLoading(button, isLoading) {
@@ -640,6 +684,84 @@
         throw new Error(payload.error || "Request failed.");
       }
       return payload;
+    }
+
+    async function streamHtml(url, body = {}, onHtml) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload.error || "Request failed.");
+      }
+
+      if (!response.body) {
+        throw new Error("Streaming response body was unavailable.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalState = null;
+
+      function processLine(line) {
+        if (!line) {
+          return;
+        }
+
+        const event = JSON.parse(line);
+        if (event.type === "status") {
+          setLoadingMessage(event.message || "Still generating the page…");
+          return;
+        }
+
+        if (event.type === "html") {
+          if (typeof onHtml === "function") {
+            onHtml(event.html || "");
+          }
+          setLoadingMessage("Still generating the page…");
+          return;
+        }
+
+        if (event.type === "complete") {
+          finalState = event.state || null;
+          return;
+        }
+
+        if (event.type === "error") {
+          throw new Error(event.error || "Streaming request failed.");
+        }
+      }
+
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+        let newlineIndex = buffer.indexOf("\n");
+        while (newlineIndex !== -1) {
+          const line = buffer.slice(0, newlineIndex).trim();
+          buffer = buffer.slice(newlineIndex + 1);
+          processLine(line);
+          newlineIndex = buffer.indexOf("\n");
+        }
+
+        if (done) {
+          break;
+        }
+      }
+
+      if (buffer.trim()) {
+        processLine(buffer.trim());
+      }
+
+      if (!finalState) {
+        throw new Error("Streaming request ended before completion.");
+      }
+
+      return finalState;
     }
 
     syncState(state);
@@ -708,15 +830,21 @@
         return;
       }
 
-      setLoading(true);
+      const previousHtml = state.html || "";
+      setLoading(true, "Generating your page…");
 
       try {
-        const payload = await postJson("{{ url_for('send') }}", { message });
+        const payload = await streamHtml("{{ url_for('send_stream') }}", { message }, (html) => {
+          state.html = html || "";
+          renderHtml(state.html);
+        });
         syncState(payload);
         input.value = "";
         resizeTextarea();
       } catch (error) {
         console.error(error);
+        state.html = previousHtml;
+        renderHtml(state.html);
       } finally {
         setLoading(false);
       }
@@ -728,15 +856,21 @@
         return;
       }
 
-      setLoading(true);
+      const previousHtml = state.html || "";
+      setLoading(true, "Tweaking your page…");
 
       try {
-        const payload = await postJson("{{ url_for('tweak') }}", { message });
+        const payload = await streamHtml("{{ url_for('tweak_stream') }}", { message }, (html) => {
+          state.html = html || "";
+          renderHtml(state.html);
+        });
         syncState(payload);
         input.value = "";
         resizeTextarea();
       } catch (error) {
         console.error(error);
+        state.html = previousHtml;
+        renderHtml(state.html);
       } finally {
         setLoading(false);
       }
