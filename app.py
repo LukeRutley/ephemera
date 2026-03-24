@@ -454,7 +454,7 @@ def find_tag_end(html: str, start_index: int) -> int | None:
     return None
 
 
-def update_open_tag_stack(stack: list[str], tag_name: str) -> None:
+def close_tag_in_stack(stack: list[str], tag_name: str) -> None:
     if tag_name not in stack:
         return
 
@@ -500,7 +500,7 @@ def build_streaming_html_preview(html: str) -> tuple[str, int]:
         is_self_closing = token.rstrip().endswith("/>") or tag_name in VOID_HTML_TAGS
 
         if is_closing_tag:
-            update_open_tag_stack(stack, tag_name)
+            close_tag_in_stack(stack, tag_name)
             if body_open and tag_name in BLOCK_LEVEL_HTML_TAGS:
                 last_boundary = tag_end + 1
                 boundary_stack = list(stack)
@@ -525,7 +525,7 @@ def build_streaming_html_preview(html: str) -> tuple[str, int]:
                 if raw_text_close_end is None:
                     break
 
-                update_open_tag_stack(stack, tag_name)
+                close_tag_in_stack(stack, tag_name)
                 if body_open and tag_name in BLOCK_LEVEL_HTML_TAGS:
                     last_boundary = raw_text_close_end + 1
                     boundary_stack = list(stack)
@@ -543,6 +543,13 @@ def build_streaming_html_preview(html: str) -> tuple[str, int]:
 
     closing_tags = "".join(f"</{tag_name}>" for tag_name in reversed(boundary_stack))
     return html[:last_boundary] + closing_tags, last_boundary
+
+
+def normalize_preview_html(html: str) -> str:
+    stripped = html.lstrip()
+    if stripped.startswith("```"):
+        return normalize_html(html)
+    return html
 
 
 def create_tool_response(
@@ -982,8 +989,14 @@ def stream_html_generation(
                     continue
 
                 accumulated_html += delta
-                preview_html, boundary = build_streaming_html_preview(normalize_html(accumulated_html))
-                if boundary <= last_boundary or not preview_html or preview_html == last_preview:
+                preview_html, boundary = build_streaming_html_preview(
+                    normalize_preview_html(accumulated_html)
+                )
+                if boundary <= last_boundary:
+                    continue
+                if not preview_html:
+                    continue
+                if preview_html == last_preview:
                     continue
 
                 last_boundary = boundary

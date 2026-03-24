@@ -557,6 +557,7 @@
     const savedPagesList = document.getElementById("savedPagesList");
     const consolidateSchemaButton = document.getElementById("consolidateSchemaButton");
     const loadingStatus = document.getElementById("loadingStatus");
+    const DEFAULT_LOADING_MESSAGE = "Still generating the page…";
 
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, (character) => ({
@@ -664,7 +665,7 @@
       tweakButton.classList.toggle("is-loading", isLoading);
       sendLabel.textContent = isLoading ? "Sending" : "Send";
       tweakLabel.textContent = isLoading ? "Tweaking" : "Tweak";
-      setLoadingMessage(isLoading ? (message || "Still generating the page…") : "");
+      setLoadingMessage(isLoading ? (message || DEFAULT_LOADING_MESSAGE) : "");
     }
 
     function setButtonLoading(button, isLoading) {
@@ -714,7 +715,7 @@
 
         const event = JSON.parse(line);
         if (event.type === "status") {
-          setLoadingMessage(event.message || "Still generating the page…");
+          setLoadingMessage(event.message || DEFAULT_LOADING_MESSAGE);
           return;
         }
 
@@ -722,7 +723,7 @@
           if (typeof onHtml === "function") {
             onHtml(event.html || "");
           }
-          setLoadingMessage("Still generating the page…");
+          setLoadingMessage(DEFAULT_LOADING_MESSAGE);
           return;
         }
 
