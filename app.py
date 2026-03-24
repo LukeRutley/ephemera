@@ -22,13 +22,15 @@ from prompts import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent
-HOLDING_PAGE_FILE = BASE_DIR / "holding_page.html"
-DATABASE_FILE = BASE_DIR / "ephemera.sqlite3"
-MEMORIES_FILE = BASE_DIR / "memories.md"
 load_dotenv(BASE_DIR / ".env")
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY") or os.getenv("SECRET_KEY") or "dev-secret-key"
+
+DATA_DIR = Path(app.instance_path)
+HOLDING_PAGE_FILE = BASE_DIR / "templates" / "holding_page.html"
+DATABASE_FILE = DATA_DIR / "ephemera.sqlite3"
+MEMORIES_FILE = DATA_DIR / "memories.md"
 
 
 class ThreadState(TypedDict):
@@ -111,7 +113,12 @@ def read_holding_page_file() -> str:
     return ""
 
 
+def ensure_data_dir() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
 def ensure_memories_file() -> None:
+    ensure_data_dir()
     with MEMORIES_FILE_LOCK:
         if MEMORIES_FILE.exists():
             return
@@ -126,11 +133,13 @@ def read_memories_file() -> str:
 
 def write_memories_file(content: str) -> None:
     normalized = normalize_memories_content(content)
+    ensure_data_dir()
     with MEMORIES_FILE_LOCK:
         MEMORIES_FILE.write_text(normalized, encoding="utf-8")
 
 
 def get_db_connection() -> sqlite3.Connection:
+    ensure_data_dir()
     connection = sqlite3.connect(DATABASE_FILE)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
