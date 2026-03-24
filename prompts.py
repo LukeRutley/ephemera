@@ -1,3 +1,5 @@
+ACCESSED_PAGES_LOOKBACK_DAYS = 10
+
 SYSTEM_PROMPT = """
 Respond with a single complete .html document only.
 
@@ -93,7 +95,7 @@ Required workflow:
 - Handle partially completed migrations safely, including cleanup or reuse of temporary tables left behind by earlier failed attempts.
 - Re-inspect the schema after any changes.
 - Review the saved pages, if one newer saved page clearly overrides an old version of that page (or similar), remove the old page.
-- Review recently accessed saved pages from the last 10 days and identify pages that should feel like parts of the same software product because they support related functionality or a shared workflow.
+- Review recently accessed saved pages from the last {lookback_days} days and identify pages that should feel like parts of the same software product because they support related functionality or a shared workflow.
 - When those recently accessed pages would benefit from clearer relationships, update their HTML to add sensible cross-links, a more consistent shared UI, and more cohesive navigation or workflow affordances.
 - If multiple related saved pages would work better as one richer page, you may combine them into a single page with patterns like tabs, sections, or linked views while preserving the useful behavior and data they expose.
 - If any schema changes have been made, review and update any saved pages html that used the old schema to ensure those pages continue to function.
@@ -105,4 +107,4 @@ Return a concise plain-language summary covering:
 3. Which tables remain in the final schema.
 
 If no changes were needed, say so explicitly.
-""".strip()
+""".format(lookback_days=ACCESSED_PAGES_LOOKBACK_DAYS).strip()
