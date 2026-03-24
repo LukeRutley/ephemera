@@ -57,7 +57,7 @@ class RuntimeContentTests(unittest.TestCase):
         self.assertEqual(response.get_json()["html"], "")
 
     def test_content_html_is_not_tracked_in_repo(self) -> None:
-        content_path = Path("/home/runner/work/ephemera/ephemera/content.html")
+        content_path = ephemera_app.BASE_DIR / "content.html"
         self.assertFalse(content_path.exists())
 
 

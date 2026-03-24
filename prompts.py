@@ -82,7 +82,7 @@ Goal:
 Required workflow:
 - Inspect the current schema first.
 - Inspect the current data with targeted counts, sample rows, and table-level checks.
-- Remove empty columns or tables that are not needed and compbine tables where possible.
+- Remove empty columns or tables that are not needed and combine tables where possible.
 - Identify redundant, overlapping, empty, or unnecessarily fragmented tables.
 - If improvements are warranted, execute the necessary SQLite changes using the provided tools.
 - Preserve existing data and keep migrations as small as possible.
@@ -92,7 +92,7 @@ Required workflow:
 - If a migration step fails, inspect the resulting state and continue from there instead of stopping.
 - Handle partially completed migrations safely, including cleanup or reuse of temporary tables left behind by earlier failed attempts.
 - Re-inspect the schema after any changes.
-- Review the saved pages, if one newer saved page clearly overides an old version of that page (or similar), remove the old page.
+- Review the saved pages, if one newer saved page clearly overrides an old version of that page (or similar), remove the old page.
 - If any schema changes have been made, review and update any saved pages html that used the old schema to ensure those pages continue to function.
 
 Return a concise plain-language summary covering:

@@ -859,4 +859,5 @@ def new_topic() -> Response:
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=int(os.getenv("PORT", "5000")))
+    debug_mode = os.getenv("FLASK_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
+    app.run(debug=debug_mode, port=int(os.getenv("PORT", "5000")))
