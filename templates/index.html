@@ -558,6 +558,22 @@
       }
     }
 
+    function bindViewerDismissHandler() {
+      try {
+        const viewerDocument = viewer.contentDocument;
+        if (!viewerDocument || viewerDocument.__savedPagesDismissBound) {
+          return;
+        }
+
+        viewerDocument.addEventListener("pointerdown", () => {
+          closeSavedPagesMenu();
+        });
+        viewerDocument.__savedPagesDismissBound = true;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
     function renderSavedPages() {
       const savedPages = Array.isArray(state.saved_pages) ? state.saved_pages : [];
       const query = savedPagesSearch.value.trim().toLowerCase();
@@ -644,6 +660,8 @@
 
     syncState(state);
     resizeTextarea();
+    viewer.addEventListener("load", bindViewerDismissHandler);
+    bindViewerDismissHandler();
 
     document.addEventListener("click", (event) => {
       if (!event.target.closest(".saved-pages-menu")) {
