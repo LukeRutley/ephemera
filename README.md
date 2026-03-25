@@ -14,7 +14,8 @@ This repository is intentionally designed to be the simplest possible proof of c
 
 Try a basic demo at [https://ephemera.azurewebsites.net](https://ephemera.azurewebsites.net). Please note that this is a very limited demo, it is hosted on an F1 Azure App Service so it will take a couple of minutes to startup, and it is exactly this repo deployed so data is not partitioned by user, and is not persistent. You will get a much better experience running yourself!
 
-![Demo GIF](https://github.com/user-attachments/assets/6602a55d-18df-4766-be15-15cf30ecf9c9)
+![Ephemera Demo](https://github.com/user-attachments/assets/2f54d003-eca7-46fd-8474-32cf1ee30516)
+
 
 ## Run
 
